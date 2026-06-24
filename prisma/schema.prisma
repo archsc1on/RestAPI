@@ -1,4 +1,3 @@
-// prisma/schema.prisma
 generator client {
   provider = "prisma-client-js"
 }
@@ -8,36 +7,30 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ============ USER & AUTH ============
 model User {
   id              String   @id @default(cuid())
   email           String   @unique
   name            String?
-  password        String?  // hashed password, null if OAuth
+  password        String?
   image           String?
-  provider        String?  // "email", "google", "github"
-  providerId      String?  // OAuth provider ID
-  
-  // Email verification
+  provider        String?
+  providerId      String?
+
   emailVerified   Boolean  @default(false)
-  otp             String?  // 6-digit code
+  otp             String?
   otpExpires      DateTime?
-  
-  // Credit system (tied to user, not key!)
+
   credits         Int      @default(100)
-  creditsTier     String   @default("FREE") // FREE | PREMIUM | VIP
+  creditsTier     String   @default("FREE")
   creditsReset    DateTime @default(now())
-  
-  // Role & status
-  role            String   @default("USER") // USER | ADMIN
+
+  role            String   @default("USER")
   isActive        Boolean  @default(true)
   lastLogin       DateTime?
-  
-  // Relations
+
   apiKeys         ApiKey[]
   logs            ApiLog[]
-  token           Token?
-  
+
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
@@ -46,39 +39,31 @@ model User {
   @@index([creditsTier])
 }
 
-// ============ API KEY SYSTEM ============
 model ApiKey {
   id              String   @id @default(cuid())
   key             String   @unique
   userId          String
   user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+
   name            String
   description     String?
-  tier            String   @default("FREE") // FREE | PREMIUM | VIP
-  
-  // Credit system (per key daily limit, but actual balance is on User)
+
+  tier            String   @default("FREE")
   creditsDaily    Int      @default(100)
   creditsUsed     Int      @default(0)
   creditsReset    DateTime @default(now())
-  
-  // Rate limiting (per key)
   rateLimit       Int      @default(30)
-  lastResetTime   DateTime @default(now())
-  
-  // Management
+
   isActive        Boolean  @default(true)
   ipWhitelist     String?
-  
-  // Stats
+
   totalRequests   Int      @default(0)
   successRequests Int      @default(0)
   failedRequests  Int      @default(0)
   lastUsed        DateTime?
-  
-  // Relations
+
   logs            ApiLog[]
-  
+
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
@@ -88,76 +73,32 @@ model ApiKey {
   @@index([createdAt])
 }
 
-// ============ API LOGS ============
 model ApiLog {
   id            String   @id @default(cuid())
-  
-  // References
+
   keyId         String
   key           ApiKey   @relation(fields: [keyId], references: [id], onDelete: Cascade)
   userId        String
   user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  // Request details
+
   endpoint      String
   method        String
   platform      String?
   phoneNumber   String?
   messageLength Int?
-  
-  // Response details
+
   statusCode    Int
   errorMessage  String?
   costCredits   Int      @default(1)
-  
-  // Request metadata
+
   ip            String?
   userAgent     String?
-  
-  createdAt     DateTime  @default(now())
+
+  createdAt     DateTime @default(now())
 
   @@index([keyId])
   @@index([userId])
   @@index([endpoint])
   @@index([statusCode])
   @@index([createdAt])
-}
-
-// ============ TOKEN (Balance for payments) ============
-model Token {
-  id              String   @id @default(cuid())
-  userId          String   @unique
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  balance         Int      @default(0)
-  
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-}
-
-// ============ PACKAGE (Credit packages for purchase) ============
-model Package {
-  id              String   @id @default(cuid())
-  
-  name            String
-  description     String?
-  price           Int      // Price in IDR
-  credits         Int      // Credits to add
-  
-  isActive        Boolean  @default(true)
-  
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-}
-
-// ============ RATE LIMIT ============
-model RateLimit {
-  id              String   @id @default(cuid())
-  key             String   @unique
-  
-  count           Int      @default(0)
-  resetAt         DateTime
-  
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
 }

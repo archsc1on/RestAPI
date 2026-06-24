@@ -113,24 +113,63 @@ export default function PricingPage() {
         {/* Credit Costs */}
         <div className="bg-slate-700/50 rounded-xl border border-slate-600 p-6 mb-8">
           <h2 className="text-xl font-bold mb-4">Credit Costs</h2>
+
+          <h3 className="text-sm font-bold text-green-400 mb-2">Text Tools (1 cr)</h3>
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
+            {['Text to MP3', 'Word Count', 'Base64', 'Slugify', 'Reverse Text', 'Lorem Ipsum', 'Hash Generator', 'Password Gen', 'Translate', 'QR Code', 'Short URL', 'TTS'].map((name) => (
+              <div key={name} className="bg-slate-800 rounded-lg p-3 text-center">
+                <div className="text-sm font-bold text-green-400">1 cr</div>
+                <div className="text-xs text-slate-400">{name}</div>
+              </div>
+            ))}
+          </div>
+
+          <h3 className="text-sm font-bold text-pink-400 mb-2">Image Tools (1 cr)</h3>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
+            {['Placeholder', 'Avatar', 'Color Info'].map((name) => (
+              <div key={name} className="bg-slate-800 rounded-lg p-3 text-center">
+                <div className="text-sm font-bold text-pink-400">1 cr</div>
+                <div className="text-xs text-slate-400">{name}</div>
+              </div>
+            ))}
+          </div>
+
+          <h3 className="text-sm font-bold text-red-400 mb-2">Downloader (3 cr)</h3>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+            {['YouTube DL', 'Instagram DL', 'TikTok DL', 'Twitter/X DL', 'Facebook DL'].map((name) => (
+              <div key={name} className="bg-slate-800 rounded-lg p-3 text-center">
+                <div className="text-sm font-bold text-red-400">3 cr</div>
+                <div className="text-xs text-slate-400">{name}</div>
+              </div>
+            ))}
+          </div>
+
+          <h3 className="text-sm font-bold text-purple-400 mb-2">Anime (2 cr)</h3>
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
+            {['Anime Search', 'Anime Detail', 'Manga Search', 'Character Search', 'Anime Schedule', 'Waifu'].map((name) => (
+              <div key={name} className="bg-slate-800 rounded-lg p-3 text-center">
+                <div className="text-sm font-bold text-purple-400">{name === 'Waifu' ? '1' : '2'} cr</div>
+                <div className="text-xs text-slate-400">{name}</div>
+              </div>
+            ))}
+          </div>
+
+          <h3 className="text-sm font-bold text-cyan-400 mb-2">Information (1-2 cr)</h3>
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
+            {['IP Lookup', 'Weather', 'News', 'Dictionary', 'KBBI', 'Currency', 'Timezone', 'Crypto', 'Country', 'Air Quality', 'NASA Space', 'COVID'].map((name) => (
+              <div key={name} className="bg-slate-800 rounded-lg p-3 text-center">
+                <div className="text-sm font-bold text-cyan-400">{name === 'News' ? '2' : '1'} cr</div>
+                <div className="text-xs text-slate-400">{name}</div>
+              </div>
+            ))}
+          </div>
+
+          <h3 className="text-sm font-bold text-orange-400 mb-2">Data & Fun (1-2 cr)</h3>
           <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-            {[
-              { name: 'Send Message', cost: '1 cr' },
-              { name: 'IP Lookup', cost: '1 cr' },
-              { name: 'QR Code', cost: '1 cr' },
-              { name: 'Translate', cost: '1 cr' },
-              { name: 'TTS', cost: '1 cr' },
-              { name: 'Weather', cost: '1 cr' },
-              { name: 'GitHub', cost: '1 cr' },
-              { name: 'Short URL', cost: '1 cr' },
-              { name: 'YouTube Search', cost: '2 cr' },
-              { name: 'Anime Search', cost: '2 cr' },
-              { name: 'Instagram', cost: '2 cr' },
-              { name: 'TikTok', cost: '2 cr' }
-            ].map((item) => (
-              <div key={item.name} className="bg-slate-800 rounded-lg p-3 text-center">
-                <div className="text-sm font-bold text-orange-400">{item.cost}</div>
-                <div className="text-xs text-slate-400">{item.name}</div>
+            {['GitHub Profile', 'GitHub Repos', 'NPM Search', 'Random User', 'Random Facts', 'Trivia', 'Jokes', 'Dad Joke', 'Quotes', 'Random Cat', 'Random Dog', 'Meme', 'Recipe', 'Movie', 'Book', 'Steam Game'].map((name) => (
+              <div key={name} className="bg-slate-800 rounded-lg p-3 text-center">
+                <div className="text-sm font-bold text-orange-400">1 cr</div>
+                <div className="text-xs text-slate-400">{name}</div>
               </div>
             ))}
           </div>

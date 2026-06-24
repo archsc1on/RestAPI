@@ -147,7 +147,7 @@ export default function Home() {
             className="grid grid-cols-3 gap-8 mt-20 text-center"
           >
             <div>
-              <div className="text-4xl font-bold text-blue-400">288+</div>
+              <div className="text-4xl font-bold text-blue-400">50+</div>
               <div className="text-slate-400">API Endpoints</div>
             </div>
             <div>

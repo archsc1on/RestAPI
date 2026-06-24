@@ -21,7 +21,7 @@ const nextConfig = {
   },
 
   experimental: {
-    serverComponentsExternalPackages: ['xendit-node', '@prisma/client', 'bcryptjs'],
+    serverComponentsExternalPackages: ['xendit-node', '@prisma/client', 'bcryptjs', '@distube/ytdl-core', 'undici'],
   },
 }
 
