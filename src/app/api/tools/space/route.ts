@@ -7,7 +7,8 @@ export const GET = createPlugin(
     const category = searchParams.get('category') || 'apod'
 
     if (category === 'apod') {
-      const apiKey = process.env.NASA_API_KEY || 'DEMO_KEY'
+      const apiKey = process.env.NASA_API_KEY
+      if (!apiKey) throw new Error('NASA_API_KEY not configured')
       const response = await fetch(
         `https://api.nasa.gov/planetary/apod?api_key=${apiKey}${query ? `&date=${query}` : ''}`
       )
@@ -28,7 +29,8 @@ export const GET = createPlugin(
     }
 
     if (category === 'rover') {
-      const apiKey = process.env.NASA_API_KEY || 'DEMO_KEY'
+      const apiKey = process.env.NASA_API_KEY
+      if (!apiKey) throw new Error('NASA_API_KEY not configured')
       const sol = searchParams.get('sol') || '1000'
       const response = await fetch(
         `https://api.nasa.gov/mars-photos/api/v1/rovers/curiosity/photos?sol=${sol}&page=1&api_key=${apiKey}`

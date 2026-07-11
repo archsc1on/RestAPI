@@ -9,7 +9,7 @@ export const GET = createPlugin(
 
     try {
       const response = await fetch(
-        `https://newsdata.io/api/1/latest?apikey=${process.env.NEWSDATA_API_KEY || 'pub_00000'}&q=${encodeURIComponent(query)}&language=${lang}&size=${limit}`
+        `https://newsdata.io/api/1/latest?apikey=${process.env.NEWSDATA_API_KEY || ''}&q=${encodeURIComponent(query)}&language=${lang}&size=${limit}`
       )
 
       if (response.ok) {

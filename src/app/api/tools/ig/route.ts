@@ -12,25 +12,45 @@ export const GET = createPlugin(
       throw new Error('Invalid Instagram URL')
     }
 
-    // Use Instagram oEmbed API (limited but works for public posts)
-    const response = await fetch(
-      `https://api.instagram.com/oembed/?url=${encodeURIComponent(url)}`
-    )
+    // Extract shortcode from Instagram URL
+    const shortcodeMatch = url.match(/\/p\/([A-Za-z0-9_-]+)/)
+    const usernameMatch = url.match(/instagram\.com\/([A-Za-z0-9_.]+)/)
 
-    if (!response.ok) {
-      throw new Error('Failed to fetch Instagram post data')
+    // Instagram oEmbed API - try both endpoints
+    let data: any = null
+
+    const oembedUrls = [
+      `https://api.instagram.com/oembed/?url=${encodeURIComponent(url)}`,
+      `https://www.instagram.com/api/v1/oembed/?url=${encodeURIComponent(url)}`
+    ]
+
+    for (const oembedUrl of oembedUrls) {
+      try {
+        const response = await fetch(oembedUrl, {
+          headers: {
+            'Accept': 'application/json',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+          },
+          redirect: 'follow'
+        })
+
+        const contentType = response.headers.get('content-type') || ''
+        if (response.ok && contentType.includes('application/json')) {
+          data = await response.json()
+          break
+        }
+      } catch {}
     }
-
-    const data = await response.json()
 
     return {
       type: 'instagram',
-      username: data.author_name || '',
-      thumbnail: data.thumbnail_url || '',
-      title: data.title || '',
-      html: data.html || '',
-      width: data.width,
-      height: data.height,
+      username: data?.author_name || usernameMatch?.[1] || '',
+      thumbnail: data?.thumbnail_url || '',
+      title: data?.title || '',
+      html: data?.html || '',
+      width: data?.width || 0,
+      height: data?.height || 0,
+      shortcode: shortcodeMatch?.[1] || '',
       url
     }
   }

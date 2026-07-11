@@ -1,40 +1,108 @@
-/* src/app/globals.css */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-body {
-  @apply bg-gray-900;
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222 47% 6%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 6%;
+    --primary: 228 76% 58%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 220 14% 96%;
+    --secondary-foreground: 222 47% 6%;
+    --muted: 220 14% 96%;
+    --muted-foreground: 220 9% 46%;
+    --accent: 220 14% 96%;
+    --accent-foreground: 222 47% 6%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 228 76% 58%;
+    --radius: 0.625rem;
+    --skeleton: 0 0% 0%;
+  }
+
+  .dark {
+    --background: 240 20% 5%;
+    --foreground: 210 40% 98%;
+    --card: 240 18% 8%;
+    --card-foreground: 210 40% 98%;
+    --primary: 228 76% 58%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 240 15% 12%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 240 15% 12%;
+    --muted-foreground: 215 20% 65%;
+    --accent: 240 15% 12%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 63% 55%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 240 12% 16%;
+    --input: 240 12% 16%;
+    --ring: 228 76% 58%;
+    --skeleton: 255 100% 100%;
+  }
 }
 
-input, select, textarea {
-  @apply bg-white/10 text-white border border-white/30 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-white/50;
+@layer base {
+  * {
+    @apply border-border;
+  }
+  html {
+    scroll-behavior: smooth;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
 }
 
-button {
-  @apply transition-all duration-200;
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
-
 ::-webkit-scrollbar-track {
-  background: #1e293b;
-  border-radius: 3px;
+  background: hsl(var(--background));
 }
-
 ::-webkit-scrollbar-thumb {
-  background: #475569;
+  background: hsl(var(--muted));
   border-radius: 3px;
 }
-
 ::-webkit-scrollbar-thumb:hover {
-  background: #64748b;
+  background: hsl(var(--muted-foreground));
 }
 
 * {
   scrollbar-width: thin;
-  scrollbar-color: #475569 #1e293b;
+  scrollbar-color: hsl(var(--muted)) hsl(var(--background));
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.animate-shimmer {
+  animation: shimmer 1.5s linear infinite;
+  background: linear-gradient(
+    90deg,
+    hsl(var(--muted)) 25%,
+    hsl(var(--muted) / 0.5) 50%,
+    hsl(var(--muted)) 75%
+  );
+  background-size: 200% 100%;
 }

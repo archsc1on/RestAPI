@@ -3,6 +3,8 @@
 import { useState, useMemo } from 'react'
 import { useSession, signOut } from 'next-auth/react'
 import { motion } from 'framer-motion'
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'
 import { Search, ChevronRight, Copy, Check, Zap, Info, Code, LogOut } from 'lucide-react'
 import { endpoints, categoryColors, type ApiEndpoint } from '@/lib/api-registry'
 import toast from 'react-hot-toast'
@@ -69,7 +71,7 @@ export default function DocsPage() {
       <div className="max-w-7xl mx-auto px-4 py-8">
         <div className="flex items-center gap-4 mb-6 text-sm">
           <span className="flex items-center gap-1.5"><span className="w-2 h-2 bg-orange-500 rounded-full" /> {endpoints.length} Endpoints</span>
-          <span className="ml-auto text-slate-400">Base: <code className="text-orange-400">http://localhost:3000</code></span>
+          <span className="ml-auto text-slate-400">Base: <code className="text-orange-400">{API_BASE}</code></span>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -120,8 +122,8 @@ export default function DocsPage() {
 
                 <div className="flex items-center gap-3 bg-slate-900 rounded-lg p-3 mb-6 border border-slate-700">
                   <span className={`text-xs font-bold ${doc.method === 'GET' ? 'text-blue-400' : 'text-purple-400'}`}>{doc.method}</span>
-                  <code className="text-sm text-orange-400 flex-1 font-mono">http://localhost:3000{doc.endpoint}</code>
-                  <button onClick={() => copyText(`http://localhost:3000${doc.endpoint}`)} className="px-3 py-1 bg-slate-700 rounded text-xs hover:bg-slate-600 transition flex items-center gap-1">
+                  <code className="text-sm text-orange-400 flex-1 font-mono">{API_BASE}{doc.endpoint}</code>
+                  <button onClick={() => copyText(`${API_BASE}${doc.endpoint}`)} className="px-3 py-1 bg-slate-700 rounded text-xs hover:bg-slate-600 transition flex items-center gap-1">
                     <Copy size={12} /> Copy
                   </button>
                 </div>

@@ -1,39 +1,98 @@
-// src/app/api/tools/tiktok/route.ts
-import { createPlugin } from '@/lib/plugin'
+import { NextRequest, NextResponse } from 'next/server'
+import { getApiKeyRecord, checkRateLimit, updateKeyStats, deductCredits, hasEnoughCredits } from '@/lib/api-key'
+import { prisma } from '@/lib/prisma'
+import { cobaltDownload } from '@/lib/cobalt'
 
-export const GET = createPlugin(
-  { name: 'tiktok', endpoint: '/api/tools/tiktok', costCredits: 2 },
-  async (req, { searchParams }) => {
+export const runtime = 'nodejs'
+
+export async function GET(request: NextRequest) {
+  try {
+    const apiKey = request.headers.get('x-api-key')
+    if (!apiKey) return NextResponse.json({ status: false, message: 'API key required' }, { status: 401 })
+
+    const keyRecord = await getApiKeyRecord(apiKey)
+    if (!keyRecord) return NextResponse.json({ status: false, message: 'Invalid API key' }, { status: 401 })
+
+    const withinLimit = await checkRateLimit(keyRecord.id)
+    if (!withinLimit) {
+      await updateKeyStats(keyRecord.id, false)
+      return NextResponse.json({ status: false, message: 'Rate limit exceeded' }, { status: 429 })
+    }
+
+    const creditCost = 2
+    const creditCheck = await hasEnoughCredits(keyRecord.userId, creditCost)
+    if (!creditCheck.enough) {
+      await updateKeyStats(keyRecord.id, false)
+      return NextResponse.json({ status: false, message: 'Insufficient credits', remaining: creditCheck.available }, { status: 402 })
+    }
+
+    const { searchParams } = new URL(request.url)
     const url = searchParams.get('url')
 
-    if (!url) throw new Error('url parameter required')
+    if (!url) return NextResponse.json({ status: false, message: 'url parameter required' }, { status: 400 })
+    if (!url.includes('tiktok.com')) return NextResponse.json({ status: false, message: 'Invalid TikTok URL' }, { status: 400 })
 
-    if (!url.includes('tiktok.com')) {
-      throw new Error('Invalid TikTok URL')
+    const result = await cobaltDownload({ url, videoQuality: '1080' })
+
+    if (result.status === 'error') {
+      return NextResponse.json({ status: false, message: result.error?.code || 'Download failed' }, { status: 400 })
     }
 
-    // Use TikTok oEmbed API
-    const response = await fetch(
-      `https://www.tiktok.com/oembed?url=${encodeURIComponent(url)}`
-    )
+    // Handle picker (multiple videos in carousel)
+    if (result.status === 'picker' && result.picker) {
+      await prisma.apiLog.create({
+        data: {
+          keyId: keyRecord.id, userId: keyRecord.userId,
+          endpoint: '/api/tools/tiktok', method: 'GET', statusCode: 200,
+          costCredits: creditCost,
+          ip: request.headers.get('x-forwarded-for') || '',
+          userAgent: request.headers.get('user-agent') || ''
+        }
+      })
+      await deductCredits(keyRecord.userId, creditCost)
+      await updateKeyStats(keyRecord.id, true)
+      const user = await prisma.user.findUnique({ where: { id: keyRecord.userId }, select: { credits: true } })
 
-    if (!response.ok) {
-      throw new Error('Failed to fetch TikTok video data')
+      return NextResponse.json({
+        status: true,
+        data: {
+          type: 'tiktok',
+          mediaType: 'carousel',
+          originalUrl: url,
+          items: result.picker.map((p) => ({ type: p.type, url: p.url, thumb: p.thumb })),
+          audio: result.audio,
+          costCredits: creditCost,
+          remaining: user?.credits || 0,
+        }
+      })
     }
 
-    const data = await response.json()
+    await prisma.apiLog.create({
+      data: {
+        keyId: keyRecord.id, userId: keyRecord.userId,
+        endpoint: '/api/tools/tiktok', method: 'GET', statusCode: 200,
+        costCredits: creditCost,
+        ip: request.headers.get('x-forwarded-for') || '',
+        userAgent: request.headers.get('user-agent') || ''
+      }
+    })
+    await deductCredits(keyRecord.userId, creditCost)
+    await updateKeyStats(keyRecord.id, true)
+    const user = await prisma.user.findUnique({ where: { id: keyRecord.userId }, select: { credits: true } })
 
-    return {
-      type: 'tiktok',
-      author: {
-        username: data.author?.unique_id || '',
-        nickname: data.author?.nickname || '',
-        avatar: data.author?.avatar_url || ''
-      },
-      title: data.title || '',
-      thumbnail: data.thumbnail_url || '',
-      html: data.html || '',
-      url
-    }
+    return NextResponse.json({
+      status: true,
+      data: {
+        type: 'tiktok',
+        originalUrl: url,
+        downloadUrl: result.url,
+        filename: result.filename,
+        costCredits: creditCost,
+        remaining: user?.credits || 0,
+      }
+    })
+  } catch (error: any) {
+    console.error('[tiktok] error:', error?.message || error)
+    return NextResponse.json({ status: false, message: error?.message || 'Internal server error' }, { status: 500 })
   }
-)
+}

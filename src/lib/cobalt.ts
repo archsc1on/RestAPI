@@ -1,65 +1,72 @@
-export interface CobaltRequest {
+const COBALT_API = process.env.COBALT_API_URL || 'https://cobalt.dzakii.my.id'
+
+interface CobaltRequest {
   url: string
   downloadMode?: 'auto' | 'audio' | 'mute'
-  audioFormat?: 'mp3' | 'best'
-  videoQuality?: '360' | '480' | '720' | '1080' | '1440' | '2160'
+  videoQuality?: string
+  audioBitrate?: string
+  audioFormat?: string
+  filenameStyle?: string
+  disableMetadata?: boolean
 }
 
-export async function cobaltDownload(opts: CobaltRequest): Promise<{ downloadUrl: string }> {
-  const body = {
-    url: opts.url,
-    downloadMode: opts.downloadMode || 'auto',
-    audioFormat: opts.audioFormat || 'mp3',
-    videoQuality: opts.videoQuality || '720',
-    filenameStyle: 'pretty'
+interface CobaltResponse {
+  status: 'tunnel' | 'redirect' | 'picker' | 'error' | 'local-processing'
+  url?: string
+  filename?: string
+  audio?: string
+  audioFilename?: string
+  picker?: Array<{ type: string; url: string; thumb?: string }>
+  error?: { code: string; context?: any }
+  type?: string
+  tunnel?: string[]
+  output?: { type: string; filename: string }
+}
+
+export async function cobaltDownload(options: CobaltRequest): Promise<CobaltResponse> {
+  const body: Record<string, any> = {
+    url: options.url,
+    downloadMode: options.downloadMode || 'auto',
+    videoQuality: options.videoQuality || '1080',
+    audioBitrate: options.audioBitrate || '128',
+    audioFormat: options.audioFormat || 'mp3',
+    filenameStyle: options.filenameStyle || 'basic',
+    disableMetadata: options.disableMetadata || false,
   }
 
-  const res = await fetch('https://api.cobalt.tools/', {
+  const res = await fetch(COBALT_API, {
     method: 'POST',
     headers: {
+      'Accept': 'application/json',
       'Content-Type': 'application/json',
-      'Accept': 'application/json'
     },
     body: JSON.stringify(body),
-    signal: AbortSignal.timeout(30000)
+    signal: AbortSignal.timeout(30000),
   })
 
   if (!res.ok) {
-    const text = await res.text().catch(() => '')
-    throw new Error(`Cobalt API returned ${res.status}: ${text.substring(0, 200)}`)
+    throw new Error(`Cobalt API error: ${res.status}`)
   }
 
-  const data = await res.json()
-
-  if (data.url) {
-    return { downloadUrl: data.url }
-  }
-
-  if (data.status === 'error') {
-    const code = data.error?.code || data.error || 'unknown'
-    throw new Error(`Download failed: ${code}`)
-  }
-
-  if (data.status === 'tunnel' || data.status === 'redirect') {
-    return { downloadUrl: data.url }
-  }
-
-  throw new Error('No download URL in response')
+  return res.json()
 }
 
-export function validateUrl(url: string, allowedDomains: string[]): boolean {
-  try {
-    const parsed = new URL(url)
-    return allowedDomains.some(d => parsed.hostname.includes(d))
-  } catch {
-    return false
-  }
-}
-
-export function extractVideoId(url: string, patterns: RegExp[]): string {
-  for (const pattern of patterns) {
-    const match = url.match(pattern)
-    if (match?.[1]) return match[1]
-  }
-  return ''
+export function isSupportedUrl(url: string): boolean {
+  const supported = [
+    'youtube.com', 'youtu.be',
+    'tiktok.com',
+    'instagram.com',
+    'twitter.com', 'x.com',
+    'facebook.com', 'fb.watch',
+    'reddit.com', 'redd.it',
+    'soundcloud.com',
+    'twitch.tv',
+    'vimeo.com',
+    'dailymotion.com',
+    'bilibili.com',
+    'pinterest.com',
+    'imgur.com',
+    'streamable.com',
+  ]
+  return supported.some((d) => url.includes(d))
 }

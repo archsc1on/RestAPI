@@ -4,9 +4,9 @@ export const GET = createPlugin(
   { name: 'anime-schedule', endpoint: '/api/tools/anime-schedule', costCredits: 2 },
   async (req, { searchParams }) => {
     const day = searchParams.get('day')
-    const filter = searchParams.get('filter') || 'tv'
+    const filter = searchParams.get('filter')
 
-    let url = `https://api.jikan.moe/v4/schedules?filter=${filter}&limit=25`
+    let url = `https://api.jikan.moe/v4/schedules?limit=25`
     if (day) {
       url += `&day=${day.toLowerCase()}`
     }

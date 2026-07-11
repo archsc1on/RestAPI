@@ -1,36 +1,41 @@
 // src/lib/rate-limiter.ts
-import prisma from './prisma'
+// In-memory rate limiter (no database model required)
+
+interface RateLimitEntry {
+  count: number
+  resetAt: number
+}
+
+const store = new Map<string, RateLimitEntry>()
+
+// Cleanup old entries every 5 minutes
+setInterval(() => {
+  const now = Date.now()
+  for (const [key, entry] of store) {
+    if (entry.resetAt < now) {
+      store.delete(key)
+    }
+  }
+}, 5 * 60 * 1000)
 
 export class RateLimiter {
   async check(key: string, options: { window: number; max: number }): Promise<boolean> {
     try {
-      const now = new Date()
-      const resetAt = new Date(now.getTime() + options.window)
+      const now = Date.now()
+      const entry = store.get(key)
 
-      const record = await prisma.rateLimit.upsert({
-        where: { key },
-        update: {
-          count: { increment: 1 },
-          resetAt,
-          updatedAt: now
-        },
-        create: {
-          key,
+      if (!entry || entry.resetAt < now) {
+        // Create new entry or reset expired one
+        store.set(key, {
           count: 1,
-          resetAt
-        }
-      })
-
-      // Check if need to reset
-      if (new Date(record.resetAt) < now) {
-        await prisma.rateLimit.update({
-          where: { key },
-          data: { count: 1, resetAt }
+          resetAt: now + options.window,
         })
         return true
       }
 
-      return record.count <= options.max
+      // Increment count
+      entry.count += 1
+      return entry.count <= options.max
     } catch (error) {
       console.error('Rate limit check error:', error)
       return true // Fail open
@@ -39,7 +44,7 @@ export class RateLimiter {
 
   async reset(key: string) {
     try {
-      await prisma.rateLimit.deleteMany({ where: { key } })
+      store.delete(key)
     } catch (error) {
       console.error('Rate limit reset error:', error)
     }

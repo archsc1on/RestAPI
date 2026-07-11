@@ -1,4 +1,3 @@
-// src/app/api/user/keys/[id]/route.ts
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
@@ -10,7 +9,7 @@ async function getSession() {
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getSession()
@@ -18,8 +17,9 @@ export async function GET(
       return NextResponse.json({ status: false, message: 'Unauthorized' }, { status: 401 })
     }
 
+    const { id } = await params
     const key = await prisma.apiKey.findFirst({
-      where: { id: params.id, userId: session.user.id },
+      where: { id, userId: session.user.id },
       select: {
         id: true, key: true, name: true, description: true, tier: true,
         creditsDaily: true, creditsUsed: true, rateLimit: true, isActive: true,
@@ -41,7 +41,7 @@ export async function GET(
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getSession()
@@ -49,8 +49,9 @@ export async function PATCH(
       return NextResponse.json({ status: false, message: 'Unauthorized' }, { status: 401 })
     }
 
+    const { id } = await params
     const existing = await prisma.apiKey.findFirst({
-      where: { id: params.id, userId: session.user.id }
+      where: { id, userId: session.user.id }
     })
     if (!existing) {
       return NextResponse.json({ status: false, message: 'Key not found' }, { status: 404 })
@@ -60,7 +61,7 @@ export async function PATCH(
     const { name, description, isActive, ipWhitelist } = body
 
     const updated = await prisma.apiKey.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         ...(name !== undefined && { name }),
         ...(description !== undefined && { description }),
@@ -79,7 +80,7 @@ export async function PATCH(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getSession()
@@ -87,14 +88,15 @@ export async function DELETE(
       return NextResponse.json({ status: false, message: 'Unauthorized' }, { status: 401 })
     }
 
+    const { id } = await params
     const existing = await prisma.apiKey.findFirst({
-      where: { id: params.id, userId: session.user.id }
+      where: { id, userId: session.user.id }
     })
     if (!existing) {
       return NextResponse.json({ status: false, message: 'Key not found' }, { status: 404 })
     }
 
-    await prisma.apiKey.delete({ where: { id: params.id } })
+    await prisma.apiKey.delete({ where: { id } })
 
     return NextResponse.json({ status: true, message: 'Key deleted successfully' })
   } catch (error) {

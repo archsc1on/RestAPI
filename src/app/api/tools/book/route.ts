@@ -7,9 +7,10 @@ export const GET = createPlugin(
     if (!query) throw new Error('q (query) parameter required')
 
     const response = await fetch(
-      `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(query)}&maxResults=5`
+      `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(query)}&maxResults=5`,
+      { headers: { 'User-Agent': 'REST-API-XENDIT/1.0' } }
     )
-    if (!response.ok) throw new Error('Search failed')
+    if (!response.ok) throw new Error(`Google Books API error: ${response.status}`)
 
     const data = await response.json()
     const results = (data.items || []).map((b: any) => ({

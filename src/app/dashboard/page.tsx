@@ -1,11 +1,26 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { useSession, signOut } from 'next-auth/react'
+import { useState, useEffect, useMemo } from 'react'
+import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Copy, Trash2, Plus, Eye, EyeOff, LogOut, Zap, CreditCard, BarChart3, RefreshCw, ArrowUp, Check } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Separator } from '@/components/ui/separator'
+import { ScrollArea } from '@/components/ui/scroll-area'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Copy, ArrowUp, Check, Zap, Search, ChevronRight } from 'lucide-react'
+import { NavBar } from '@/components/layout/NavBar'
+import { PageWrapper } from '@/components/layout/PageWrapper'
+import { StatsCards } from '@/components/dashboard/StatsCards'
+import { ApiKeyList } from '@/components/dashboard/ApiKeyList'
+import { endpoints, categoryColors } from '@/lib/api-registry'
+import { API_BASE } from '@/app/lib/api'
+import { SkeletonDashboard } from '@/components/ui/skeleton'
+import { FloatingBackground } from '@/components/FloatingBackground'
 
 interface ApiKey {
   id: string
@@ -14,7 +29,6 @@ interface ApiKey {
   description?: string
   tier: string
   creditsDaily: number
-  creditsUsed: number
   rateLimit: number
   totalRequests: number
   successRequests: number
@@ -31,42 +45,16 @@ interface UserData {
 }
 
 const TIER_PLANS = [
-  {
-    name: 'FREE',
-    price: 'Rp0',
-    credits: '100/day',
-    keys: '1 key',
-    rateLimit: '30 req/min',
-    color: 'from-slate-600 to-slate-700',
-    border: 'border-slate-500',
-    badge: 'bg-slate-500',
-    features: ['All endpoints', '1 API key', '100 credits/day']
-  },
-  {
-    name: 'PREMIUM',
-    price: 'Rp25K',
-    period: '/bulan',
-    credits: '10K/day',
-    keys: '5 keys',
-    rateLimit: '120 req/min',
-    color: 'from-blue-600 to-purple-600',
-    border: 'border-blue-400',
-    badge: 'bg-blue-500',
-    features: ['All endpoints', '5 API keys', '10K credits/day', 'IP whitelist'],
-    popular: true
-  },
-  {
-    name: 'VIP',
-    price: 'Rp50K',
-    period: '/bulan',
-    credits: '100K/day',
-    keys: '20 keys',
-    rateLimit: '500 req/min',
-    color: 'from-purple-600 to-pink-600',
-    border: 'border-purple-400',
-    badge: 'bg-purple-500',
-    features: ['All endpoints', '20 API keys', '100K credits/day', 'IP whitelist', 'Custom limits']
-  }
+  { name: 'FREE', price: 'Rp0', credits: '100/day', keys: '1 key', rate: '30 req/min', features: ['All endpoints', '1 API key', '100 credits/day'] },
+  { name: 'PREMIUM', price: 'Rp25K', period: '/bulan', credits: '10K/day', keys: '5 keys', rate: '120 req/min', features: ['All endpoints', '5 API keys', '10K credits/day', 'IP whitelist'], popular: true },
+  { name: 'VIP', price: 'Rp50K', period: '/bulan', credits: '100K/day', keys: '20 keys', rate: '500 req/min', features: ['All endpoints', '20 API keys', '100K credits/day', 'Custom limits'] },
+]
+
+const docCategories = [
+  { name: 'ALL', count: endpoints.length },
+  ...Object.keys(categoryColors)
+    .map((n) => ({ name: n, count: endpoints.filter((d) => d.category === n).length }))
+    .filter((c) => c.count > 0),
 ]
 
 export default function Dashboard() {
@@ -75,442 +63,514 @@ export default function Dashboard() {
   const [keys, setKeys] = useState<ApiKey[]>([])
   const [userData, setUserData] = useState<UserData | null>(null)
   const [loading, setLoading] = useState(true)
-  const [showForm, setShowForm] = useState(false)
   const [showUpgrade, setShowUpgrade] = useState(false)
-  const [newKey, setNewKey] = useState({ name: '', description: '' })
-  const [visibleKeys, setVisibleKeys] = useState<Set<string>>(new Set())
   const [upgrading, setUpgrading] = useState(false)
+  const [selected, setSelected] = useState('')
+  const [search, setSearch] = useState('')
+  const [cat, setCat] = useState('ALL')
+  const [docTab, setDocTab] = useState('info')
+  const [apiKeyInput, setApiKeyInput] = useState('')
+  const [paramValues, setParamValues] = useState<Record<string, string>>({})
+  const [apiLoading, setApiLoading] = useState(false)
+  const [apiResponse, setApiResponse] = useState('')
+  const [apiStatus, setApiStatus] = useState<number | null>(null)
 
   useEffect(() => {
-    if (status === 'unauthenticated') {
-      router.push('/login')
-    }
+    if (status === 'unauthenticated') router.push('/login')
     if (status === 'authenticated') {
-      loadApiKeys()
-      loadUserData()
-
-      const interval = setInterval(() => {
-        loadApiKeys()
-        loadUserData()
-      }, 5000)
-
-      return () => clearInterval(interval)
+      loadData()
+      const iv = setInterval(loadData, 10000)
+      return () => clearInterval(iv)
     }
   }, [status])
 
-  const loadApiKeys = async () => {
+  const loadData = async () => {
     try {
-      const res = await fetch('/api/user/keys')
-      if (res.ok) {
-        const data = await res.json()
-        setKeys(data.data || [])
+      const [keysRes, creditsRes] = await Promise.all([
+        fetch('/api/user/keys'),
+        fetch('/api/user/credits'),
+      ])
+      if (keysRes.ok) {
+        const d = await keysRes.json()
+        setKeys(d.data || [])
       }
-    } catch (error) {
-      console.error('Failed to load keys:', error)
-    } finally {
+      if (creditsRes.ok) {
+        const d = await creditsRes.json()
+        setUserData(d.data)
+      }
+    } catch {} finally {
       setLoading(false)
     }
   }
 
-  const loadUserData = async () => {
+  const createKey = async (name: string, description: string) => {
     try {
-      const res = await fetch('/api/user/credits')
-      if (res.ok) {
-        const data = await res.json()
-        setUserData(data.data)
-      }
-    } catch (error) {
-      console.error('Failed to load user data:', error)
-    }
-  }
-
-  const createKey = async () => {
-    try {
-      const res = await fetch('/api/user/keys', {
+      const r = await fetch('/api/user/keys', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newKey)
+        body: JSON.stringify({ name, description }),
       })
-      const data = await res.json()
-      if (data.status) {
-        setKeys([...keys, data.data])
-        setNewKey({ name: '', description: '' })
-        setShowForm(false)
-        loadUserData()
-        toast.success('API key created!', { duration: 2000 })
+      const d = await r.json()
+      if (d.status) {
+        setKeys([...keys, d.data])
+        loadData()
+        toast.success('API key created!')
       } else {
-        toast.error(data.message || 'Failed to create key', { duration: 3000 })
+        toast.error(d.message || 'Failed')
       }
-    } catch (error) {
-      console.error('Failed to create key:', error)
-      toast.error('Failed to create key', { duration: 3000 })
+    } catch {
+      toast.error('Failed to create key')
     }
   }
 
   const deleteKey = async (id: string) => {
-    if (confirm('Delete this API key?')) {
-      try {
-        const res = await fetch(`/api/user/keys/${id}`, { method: 'DELETE' })
-        if (res.ok) {
-          setKeys(keys.filter(k => k.id !== id))
-          toast.success('Key deleted', { duration: 2000 })
-        } else {
-          toast.error('Failed to delete key', { duration: 3000 })
-        }
-      } catch (error) {
-        console.error('Failed to delete key:', error)
-        toast.error('Failed to delete key', { duration: 3000 })
+    try {
+      const r = await fetch(`/api/user/keys/${id}`, { method: 'DELETE' })
+      if (r.ok) {
+        setKeys(keys.filter((k) => k.id !== id))
+        toast.success('Key deleted')
+      } else {
+        toast.error('Failed to delete')
       }
+    } catch {
+      toast.error('Failed to delete')
     }
   }
 
   const upgradeTier = async (tier: string) => {
-    if (!confirm(`Upgrade to ${tier}?`)) return
     setUpgrading(true)
     try {
-      const res = await fetch('/api/user/upgrade', {
+      const r = await fetch('/api/user/upgrade', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tier })
+        body: JSON.stringify({ tier }),
       })
-      const data = await res.json()
-      if (data.status) {
-        loadUserData()
-        loadApiKeys()
-        setShowUpgrade(false)
-        toast.success(`Upgraded to ${tier}!`, { duration: 2000 })
+      const d = await r.json()
+      if (d.status) {
+        loadData()
+        toast.success(`Upgraded to ${tier}!`)
       } else {
-        toast.error(data.message || 'Failed to upgrade', { duration: 3000 })
+        toast.error(d.message || 'Failed')
       }
-    } catch (error) {
-      console.error('Failed to upgrade:', error)
-      toast.error('Failed to upgrade', { duration: 3000 })
+    } catch {
+      toast.error('Failed to upgrade')
     } finally {
       setUpgrading(false)
     }
   }
 
-  const copyToClipboard = async (text: string) => {
+  const copyText = async (text: string) => {
     try {
       await navigator.clipboard.writeText(text)
-      toast.success('Copied to clipboard!', { duration: 1500 })
     } catch {
-      const textarea = document.createElement('textarea')
-      textarea.value = text
-      textarea.style.position = 'fixed'
-      textarea.style.opacity = '0'
-      document.body.appendChild(textarea)
-      textarea.select()
+      const t = document.createElement('textarea')
+      t.value = text
+      t.style.position = 'fixed'
+      t.style.opacity = '0'
+      document.body.appendChild(t)
+      t.select()
       document.execCommand('copy')
-      document.body.removeChild(textarea)
-      toast.success('Copied to clipboard!', { duration: 1500 })
+      document.body.removeChild(t)
+    }
+    toast.success('Copied!', { duration: 1500 })
+  }
+
+  const runApi = async () => {
+    if (!doc || !apiKeyInput) return
+    setApiLoading(true)
+    setApiResponse('')
+    setApiStatus(null)
+    try {
+      const params = new URLSearchParams()
+      doc.params.forEach((p) => {
+        if (p.name !== 'x-api-key' && paramValues[p.name]) {
+          params.set(p.name, paramValues[p.name])
+        }
+      })
+      const url = `${API_BASE}${doc.endpoint}?${params.toString()}`
+      const res = await fetch(url, { headers: { 'x-api-key': apiKeyInput } })
+      setApiStatus(res.status)
+      const text = await res.text()
+      try {
+        setApiResponse(JSON.stringify(JSON.parse(text), null, 2))
+      } catch {
+        setApiResponse(text)
+      }
+    } catch (err: any) {
+      setApiResponse(`Error: ${err.message}`)
+      setApiStatus(0)
+    } finally {
+      setApiLoading(false)
     }
   }
 
-  const toggleKeyVisibility = (id: string) => {
-    const newSet = new Set(visibleKeys)
-    if (newSet.has(id)) {
-      newSet.delete(id)
-    } else {
-      newSet.add(id)
-    }
-    setVisibleKeys(newSet)
-  }
+  const filteredDocs = useMemo(
+    () =>
+      endpoints.filter((d) => {
+        const matchCat = cat === 'ALL' || d.category === cat
+        const matchQ =
+          !search ||
+          d.name.toLowerCase().includes(search.toLowerCase()) ||
+          d.endpoint.toLowerCase().includes(search.toLowerCase()) ||
+          d.tags.some((t) => t.includes(search.toLowerCase()))
+        return matchCat && matchQ
+      }),
+    [cat, search]
+  )
+
+  const doc = endpoints.find((d) => d.name === selected)
 
   if (status === 'loading' || loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center">
-        <div className="text-slate-400">Loading...</div>
-      </div>
+      <PageWrapper>
+        <NavBar />
+        <div className="max-w-6xl mx-auto px-4 py-6">
+          <SkeletonDashboard />
+        </div>
+      </PageWrapper>
     )
   }
 
-  const tierColors: Record<string, string> = {
-    FREE: 'text-slate-300',
-    PREMIUM: 'text-blue-400',
-    VIP: 'text-purple-400'
-  }
+  const maxKeys = userData?.tier === 'FREE' ? 1 : userData?.tier === 'PREMIUM' ? 5 : 20
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white">
-      <nav className="border-b border-slate-700 bg-slate-900/50 backdrop-blur">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-          <div className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
-            Dashboard
+    <PageWrapper>
+      <FloatingBackground />
+      <NavBar />
+
+      <div className="max-w-6xl mx-auto px-4 py-6 space-y-8">
+        <StatsCards
+          userData={userData}
+          keysCount={keys.length}
+          maxKeys={maxKeys}
+          onRefresh={loadData}
+          onToggleUpgrade={() => setShowUpgrade(!showUpgrade)}
+          showUpgrade={showUpgrade}
+        />
+
+        <AnimatePresence>
+          {showUpgrade && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+            >
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <ArrowUp className="h-4 w-4" /> Upgrade Plan
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid md:grid-cols-3 gap-4">
+                    {TIER_PLANS.map((p) => {
+                      const isCurrent = userData?.tier === p.name
+                      const tiers = ['FREE', 'PREMIUM', 'VIP']
+                      const canUpgrade = tiers.indexOf(p.name) > tiers.indexOf(userData?.tier || 'FREE')
+                      return (
+                        <div
+                          key={p.name}
+                          className={`p-4 rounded-lg border transition-colors ${
+                            isCurrent ? 'bg-primary/5 border-primary/30' : 'hover:bg-muted/50'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="font-semibold">{p.name}</span>
+                            {p.popular && <Badge className="text-[9px] px-1 py-0">POPULAR</Badge>}
+                            {isCurrent && <Badge variant="success" className="text-[9px] px-1 py-0">CURRENT</Badge>}
+                          </div>
+                          <div className="mb-1">
+                            <span className="text-2xl font-bold">{p.price}</span>
+                            {p.period && <span className="text-xs text-muted-foreground">{p.period}</span>}
+                          </div>
+                          <p className="text-xs text-muted-foreground mb-3">
+                            {p.credits} &bull; {p.keys} &bull; {p.rate}
+                          </p>
+                          <ul className="space-y-1.5 mb-4">
+                            {p.features.map((f, i) => (
+                              <li key={i} className="flex items-center gap-1.5 text-xs">
+                                <Check className="h-3 w-3 text-emerald-400 shrink-0" />
+                                {f}
+                              </li>
+                            ))}
+                          </ul>
+                          <Button
+                            size="sm"
+                            variant={isCurrent ? 'secondary' : canUpgrade ? 'default' : 'outline'}
+                            disabled={isCurrent || !canUpgrade || upgrading}
+                            onClick={() => upgradeTier(p.name)}
+                            className="w-full"
+                          >
+                            {isCurrent ? 'Current' : canUpgrade ? (upgrading ? 'Upgrading...' : 'Upgrade') : 'N/A'}
+                          </Button>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <ApiKeyList keys={keys} maxKeys={maxKeys} onCreate={createKey} onDelete={deleteKey} />
+
+        <section id="docs-section">
+          <Separator className="mb-6" />
+          <div className="flex items-center gap-3 mb-4">
+            <h2 className="text-xl font-bold">Documentation</h2>
+            <span className="text-sm text-muted-foreground">{endpoints.length} endpoints</span>
+            <span className="ml-auto text-xs text-muted-foreground">
+              Base: <code className="text-primary">{API_BASE}</code>
+            </span>
           </div>
-          <div className="flex items-center gap-6">
-            <a href="/" className="hover:text-blue-400 transition">Home</a>
-            <a href="/docs" className="hover:text-blue-400 transition">Docs</a>
-            <a href="/pricing" className="hover:text-blue-400 transition">Pricing</a>
-            <div className="flex items-center gap-3 pl-4 border-l border-slate-600">
-              <div className="text-right">
-                <div className="text-sm font-medium">{session?.user?.name || session?.user?.email}</div>
-                <div className={`text-xs ${tierColors[userData?.tier || 'FREE']}`}>{userData?.tier || 'FREE'}</div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <div className="lg:col-span-1 space-y-3">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search endpoints..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="pl-9"
+                />
               </div>
-              <button
-                onClick={() => signOut({ callbackUrl: '/login' })}
-                className="p-2 hover:bg-slate-700 rounded transition"
-                title="Sign out"
-              >
-                <LogOut size={18} />
-              </button>
-            </div>
-          </div>
-        </div>
-      </nav>
-
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="p-5 bg-slate-700/50 rounded-lg border border-slate-600"
-          >
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-blue-600/20 rounded">
-                  <CreditCard size={20} className="text-blue-400" />
-                </div>
-                <span className="text-slate-400 text-sm">Credits Today</span>
-              </div>
-              <button onClick={() => { loadUserData(); loadApiKeys() }} className="p-1 hover:bg-slate-600 rounded transition" title="Refresh">
-                <RefreshCw size={14} className="text-slate-400" />
-              </button>
-            </div>
-            <div className="text-3xl font-bold">{userData?.credits ?? '-'}</div>
-            <div className="text-xs text-slate-500 mt-1">Resets daily at midnight</div>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="p-5 bg-slate-700/50 rounded-lg border border-slate-600"
-          >
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-purple-600/20 rounded">
-                  <Zap size={20} className="text-purple-400" />
-                </div>
-                <span className="text-slate-400 text-sm">Plan</span>
-              </div>
-              <button onClick={() => setShowUpgrade(!showUpgrade)} className="p-1 hover:bg-slate-600 rounded transition" title="Upgrade">
-                <ArrowUp size={14} className="text-purple-400" />
-              </button>
-            </div>
-            <div className={`text-2xl font-bold ${tierColors[userData?.tier || 'FREE']}`}>
-              {userData?.tier || 'FREE'}
-            </div>
-            <div className="text-xs text-slate-500 mt-1">
-              {userData?.tier === 'FREE' ? '1 key max' : userData?.tier === 'PREMIUM' ? '5 keys max' : '20 keys max'}
-            </div>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            className="p-5 bg-slate-700/50 rounded-lg border border-slate-600"
-          >
-            <div className="flex items-center gap-3 mb-3">
-              <div className="p-2 bg-green-600/20 rounded">
-                <BarChart3 size={20} className="text-green-400" />
-              </div>
-              <span className="text-slate-400 text-sm">Usage</span>
-            </div>
-            <div className="text-3xl font-bold">
-              {userData?.creditsUsedToday ?? 0}
-              <span className="text-lg text-slate-400"> / {userData?.creditsDaily ?? 0}</span>
-            </div>
-            <div className="text-xs text-slate-500 mt-1">Credits used today</div>
-          </motion.div>
-        </div>
-
-        {showUpgrade && (
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mb-8 p-6 bg-slate-700/50 rounded-xl border border-slate-600"
-          >
-            <h2 className="text-xl font-bold mb-4">Upgrade Your Plan</h2>
-            <div className="grid md:grid-cols-3 gap-4">
-              {TIER_PLANS.map((plan) => {
-                const isCurrent = userData?.tier === plan.name
-                const tiers = ['FREE', 'PREMIUM', 'VIP']
-                const currentIdx = tiers.indexOf(userData?.tier || 'FREE')
-                const planIdx = tiers.indexOf(plan.name)
-                const canUpgrade = planIdx > currentIdx
-
-                return (
-                  <div
-                    key={plan.name}
-                    className={`relative p-5 rounded-xl border transition ${
-                      plan.popular ? `${plan.border} bg-gradient-to-br ${plan.color}` : 'border-slate-600 bg-slate-800/50'
-                    } ${isCurrent ? 'ring-2 ring-green-500' : ''}`}
+              <div className="flex gap-1.5 overflow-x-auto pb-1">
+                {docCategories.map((c) => (
+                  <Button
+                    key={c.name}
+                    size="sm"
+                    variant={cat === c.name ? 'default' : 'ghost'}
+                    className="shrink-0 text-xs h-7"
+                    onClick={() => setCat(c.name)}
                   >
-                    {plan.popular && (
-                      <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-yellow-500 text-black text-xs font-bold rounded-full">
-                        POPULAR
-                      </div>
-                    )}
-                    {isCurrent && (
-                      <div className="absolute -top-3 right-4 px-3 py-1 bg-green-500 text-white text-xs font-bold rounded-full flex items-center gap-1">
-                        <Check size={10} /> CURRENT
-                      </div>
-                    )}
-                    <h3 className="text-lg font-bold mb-1">{plan.name}</h3>
-                    <div className="flex items-baseline gap-1 mb-2">
-                      <span className="text-2xl font-bold">{plan.price}</span>
-                      {plan.period && <span className="text-xs text-slate-300">{plan.period}</span>}
-                    </div>
-                    <div className="text-xs text-slate-400 mb-3">{plan.credits} &bull; {plan.keys} &bull; {plan.rateLimit}</div>
-                    <ul className="space-y-1 mb-4">
-                      {plan.features.map((f, i) => (
-                        <li key={i} className="flex items-center gap-1.5 text-xs">
-                          <Check size={10} className="text-green-400" /> {f}
-                        </li>
-                      ))}
-                    </ul>
+                    {c.name}
+                    <Badge variant="secondary" className="ml-1 text-[10px] h-4 px-1">
+                      {c.count}
+                    </Badge>
+                  </Button>
+                ))}
+              </div>
+              <ScrollArea className="h-[50vh]">
+                <div className="space-y-1.5 pr-2">
+                  {filteredDocs.map((d) => (
                     <button
-                      onClick={() => upgradeTier(plan.name)}
-                      disabled={isCurrent || !canUpgrade || upgrading}
-                      className={`w-full py-2 rounded-lg font-bold text-sm transition ${
-                        isCurrent
-                          ? 'bg-green-600/20 text-green-400 cursor-default'
-                          : canUpgrade
-                            ? 'bg-blue-500 hover:bg-blue-600'
-                            : 'bg-slate-600 text-slate-400 cursor-not-allowed'
+                      key={d.name}
+                      onClick={() => {
+                        setSelected(d.name)
+                        setDocTab('info')
+                        setParamValues({})
+                        setApiResponse('')
+                        setApiStatus(null)
+                      }}
+                      className={`w-full text-left p-2.5 rounded-lg border transition-colors ${
+                        selected === d.name
+                          ? 'bg-primary/10 border-primary/50'
+                          : 'bg-card hover:border-muted-foreground/30'
                       }`}
                     >
-                      {isCurrent ? 'Current Plan' : canUpgrade ? (upgrading ? 'Upgrading...' : 'Upgrade') : 'Downgrade'}
-                    </button>
-                  </div>
-                )
-              })}
-            </div>
-          </motion.div>
-        )}
-
-        <div className="flex justify-between items-center mb-6">
-          <div>
-            <h2 className="text-2xl font-bold">API Keys</h2>
-            <p className="text-slate-400 text-sm">
-              {keys.length} / {userData?.tier === 'FREE' ? 1 : userData?.tier === 'PREMIUM' ? 5 : 20} keys
-            </p>
-          </div>
-          <button
-            onClick={() => setShowForm(!showForm)}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-500 rounded-lg hover:bg-blue-600 transition font-bold text-sm"
-          >
-            <Plus size={18} /> New Key
-          </button>
-        </div>
-
-        {showForm && (
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mb-6 p-6 bg-slate-700 rounded-lg border border-slate-600"
-          >
-            <h3 className="text-lg font-bold mb-4">Create New API Key</h3>
-            <div className="space-y-4">
-              <input
-                type="text"
-                placeholder="Key name (e.g., Production, Development)"
-                value={newKey.name}
-                onChange={(e) => setNewKey({ ...newKey, name: e.target.value })}
-                className="w-full px-4 py-2 bg-slate-800 border border-slate-600 rounded text-white focus:border-blue-400 outline-none"
-              />
-              <textarea
-                placeholder="Description (optional)"
-                value={newKey.description}
-                onChange={(e) => setNewKey({ ...newKey, description: e.target.value })}
-                className="w-full px-4 py-2 bg-slate-800 border border-slate-600 rounded text-white focus:border-blue-400 outline-none resize-none"
-                rows={2}
-              />
-              <div className="flex gap-4">
-                <button onClick={createKey} disabled={!newKey.name} className="px-6 py-2 bg-blue-500 rounded hover:bg-blue-600 disabled:opacity-50 transition font-bold">
-                  Create Key
-                </button>
-                <button onClick={() => setShowForm(false)} className="px-6 py-2 bg-slate-600 rounded hover:bg-slate-700 transition">
-                  Cancel
-                </button>
-              </div>
-            </div>
-          </motion.div>
-        )}
-
-        {keys.length === 0 ? (
-          <div className="text-center p-12 bg-slate-700/50 rounded-lg border border-slate-600">
-            <p className="text-slate-400 mb-4">No API keys yet</p>
-            <button onClick={() => setShowForm(true)} className="px-6 py-2 bg-blue-500 rounded hover:bg-blue-600 transition font-bold">
-              Create Your First Key
-            </button>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {keys.map((key) => (
-              <motion.div
-                key={key.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="p-5 bg-slate-700/50 rounded-lg border border-slate-600 hover:border-blue-400 transition"
-              >
-                <div className="grid md:grid-cols-2 gap-6">
-                  <div>
-                    <div className="flex items-center gap-3 mb-3">
-                      <h3 className="text-lg font-bold">{key.name}</h3>
-                      <span className={`px-2 py-1 rounded text-xs font-bold ${key.isActive ? 'bg-green-600' : 'bg-red-600'}`}>
-                        {key.isActive ? 'Active' : 'Inactive'}
-                      </span>
-                    </div>
-                    {key.description && (
-                      <p className="text-slate-400 text-sm mb-3">{key.description}</p>
-                    )}
-                    <div className="flex items-center gap-2 mb-3 p-2 bg-slate-800 rounded font-mono text-xs">
-                      <span className="truncate">{visibleKeys.has(key.id) ? key.key : '••••••••••••••••••••••••••'}</span>
-                      <button onClick={() => toggleKeyVisibility(key.id)} className="ml-auto hover:text-blue-400 flex-shrink-0">
-                        {visibleKeys.has(key.id) ? <EyeOff size={14} /> : <Eye size={14} />}
-                      </button>
-                      <button onClick={() => copyToClipboard(key.key)} className="hover:text-blue-400 flex-shrink-0">
-                        <Copy size={14} />
-                      </button>
-                    </div>
-                    <p className="text-xs text-slate-500">
-                      Created {new Date(key.createdAt).toLocaleDateString()}
-                    </p>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="p-3 bg-slate-800 rounded">
-                      <div className="text-xs text-slate-400">Credits Used</div>
-                      <div className="text-xl font-bold">{key.totalRequests}/{key.creditsDaily}</div>
-                    </div>
-                    <div className="p-3 bg-slate-800 rounded">
-                      <div className="text-xs text-slate-400">Rate Limit</div>
-                      <div className="text-xl font-bold">{key.rateLimit}/min</div>
-                    </div>
-                    <div className="p-3 bg-slate-800 rounded">
-                      <div className="text-xs text-slate-400">Success</div>
-                      <div className="text-xl font-bold">
-                        {key.totalRequests === 0 ? '0%' : ((key.successRequests / key.totalRequests) * 100).toFixed(0)}%
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <Badge variant={d.method === 'GET' ? 'default' : 'secondary'} className="text-[10px] px-1.5 py-0">
+                          {d.method}
+                        </Badge>
+                        <span className="text-[10px] text-muted-foreground">{d.category}</span>
+                        <span className="ml-auto text-[10px] text-primary font-medium">{d.cost}cr</span>
                       </div>
-                    </div>
-                    <div className="col-span-2">
-                      <button
-                        onClick={() => deleteKey(key.id)}
-                        className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-red-600/20 text-red-400 rounded hover:bg-red-600/40 transition border border-red-600/50 text-sm"
-                      >
-                        <Trash2 size={14} /> Delete
-                      </button>
-                    </div>
-                  </div>
+                      <div className="text-xs font-medium">{d.name}</div>
+                      <div className="text-[10px] text-muted-foreground font-mono mt-0.5">{d.endpoint}</div>
+                    </button>
+                  ))}
                 </div>
-              </motion.div>
-            ))}
+              </ScrollArea>
+            </div>
+
+            <div className="lg:col-span-2">
+              {doc ? (
+                <Card>
+                  <CardContent className="p-5">
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
+                      <span>{doc.category}</span>
+                      <ChevronRight className="h-3 w-3" />
+                      <span className="text-foreground font-medium">{doc.name}</span>
+                    </div>
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <Badge variant={doc.method === 'GET' ? 'default' : 'secondary'}>{doc.method}</Badge>
+                      <Badge variant="outline">v1.0.0</Badge>
+                    </div>
+                    <h2 className="text-xl font-bold mb-1">{doc.name}</h2>
+                    <p className="text-sm text-muted-foreground mb-3">{doc.description}</p>
+                    <div className="flex items-center gap-2 bg-muted rounded-lg px-3 py-2 mb-3">
+                      <Badge variant={doc.method === 'GET' ? 'default' : 'secondary'} className="text-[10px]">
+                        {doc.method}
+                      </Badge>
+                      <code className="text-sm text-primary flex-1 font-mono truncate">
+                        {API_BASE}{doc.endpoint}
+                      </code>
+                      <Button variant="ghost" size="sm" className="h-7" onClick={() => copyText(`${API_BASE}${doc.endpoint}`)}>
+                        <Copy className="h-3.5 w-3.5 mr-1" /> Copy
+                      </Button>
+                    </div>
+                    <Tabs value={docTab} onValueChange={setDocTab}>
+                      <TabsList className="mb-3">
+                        <TabsTrigger value="info">Info</TabsTrigger>
+                        <TabsTrigger value="code">Code</TabsTrigger>
+                      </TabsList>
+                      <TabsContent value="info" className="space-y-3">
+                        <div className="grid grid-cols-4 gap-2">
+                          {[
+                            { l: 'AUTH', v: 'API Key', c: 'text-primary' },
+                            { l: 'COST', v: `${doc.cost} Credit`, c: 'text-primary' },
+                            { l: 'TIER', v: 'Free', c: 'text-emerald-500' },
+                            { l: 'TIMEOUT', v: '3s', c: '' },
+                          ].map((i) => (
+                            <div key={i.l} className="bg-muted rounded-lg p-2">
+                              <div className="text-[10px] text-muted-foreground uppercase">{i.l}</div>
+                              <div className={`text-xs font-semibold mt-0.5 ${i.c}`}>{i.v}</div>
+                            </div>
+                          ))}
+                        </div>
+                        <div>
+                          <h4 className="text-[10px] font-semibold uppercase text-muted-foreground mb-1.5">Tags</h4>
+                          <div className="flex gap-1 flex-wrap">
+                            {doc.tags.map((t) => (
+                              <Badge key={t} variant="secondary" className="text-[10px]">
+                                #{t}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                        <div>
+                          <h4 className="text-[10px] font-semibold uppercase text-muted-foreground mb-1.5">Parameters</h4>
+                          <div className="border rounded-lg overflow-hidden">
+                            <table className="w-full text-xs">
+                              <thead>
+                                <tr className="bg-muted">
+                                  <th className="text-left px-2.5 py-1.5 text-[10px] font-medium text-muted-foreground">NAME</th>
+                                  <th className="text-left px-2.5 py-1.5 text-[10px] font-medium text-muted-foreground">TYPE</th>
+                                  <th className="text-left px-2.5 py-1.5 text-[10px] font-medium text-muted-foreground">REQ</th>
+                                  <th className="text-left px-2.5 py-1.5 text-[10px] font-medium text-muted-foreground">DESC</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {doc.params.map((p, i) => (
+                                  <tr key={i} className="border-t">
+                                    <td className="px-2.5 py-1.5 font-mono text-primary">{p.name}</td>
+                                    <td className="px-2.5 py-1.5">
+                                      <Badge variant="outline" className="text-[10px]">{p.type}</Badge>
+                                    </td>
+                                    <td className="px-2.5 py-1.5">
+                                      {p.required ? (
+                                        <Badge variant="destructive" className="text-[10px]">Yes</Badge>
+                                      ) : (
+                                        <span className="text-muted-foreground">No</span>
+                                      )}
+                                    </td>
+                                    <td className="px-2.5 py-1.5 text-muted-foreground">{p.description}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                        {doc.body && doc.body.length > 0 && (
+                          <div>
+                            <h4 className="text-[10px] font-semibold uppercase text-muted-foreground mb-1.5">Request Body</h4>
+                            <div className="border rounded-lg overflow-hidden">
+                              <table className="w-full text-xs">
+                                <thead>
+                                  <tr className="bg-muted">
+                                    <th className="text-left px-2.5 py-1.5 text-[10px] font-medium text-muted-foreground">NAME</th>
+                                    <th className="text-left px-2.5 py-1.5 text-[10px] font-medium text-muted-foreground">TYPE</th>
+                                    <th className="text-left px-2.5 py-1.5 text-[10px] font-medium text-muted-foreground">REQ</th>
+                                    <th className="text-left px-2.5 py-1.5 text-[10px] font-medium text-muted-foreground">DESC</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {doc.body.map((f, i) => (
+                                    <tr key={i} className="border-t">
+                                      <td className="px-2.5 py-1.5 font-mono text-primary">{f.name}</td>
+                                      <td className="px-2.5 py-1.5">
+                                        <Badge variant="outline" className="text-[10px]">{f.type}</Badge>
+                                      </td>
+                                      <td className="px-2.5 py-1.5">
+                                        {f.required ? (
+                                          <Badge variant="destructive" className="text-[10px]">Yes</Badge>
+                                        ) : (
+                                          <span className="text-muted-foreground">No</span>
+                                        )}
+                                      </td>
+                                      <td className="px-2.5 py-1.5 text-muted-foreground">{f.description}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        )}
+                      </TabsContent>
+                      <TabsContent value="code" className="space-y-4">
+                        <div>
+                          <h4 className="text-xs font-semibold mb-2">API Key</h4>
+                          <Input
+                            placeholder="sk_..."
+                            value={apiKeyInput}
+                            onChange={(e) => setApiKeyInput(e.target.value)}
+                            className="font-mono text-xs"
+                          />
+                        </div>
+                        <div>
+                          <h4 className="text-xs font-semibold mb-2">Parameters</h4>
+                          <div className="space-y-2">
+                            {doc.params
+                              .filter((p) => p.name !== 'x-api-key')
+                              .map((p) => (
+                                <div key={p.name} className="flex items-center gap-2">
+                                  <span className="text-xs font-mono text-primary w-24 shrink-0">{p.name}</span>
+                                  <Input
+                                    placeholder={`${p.description}${p.required ? ' *' : ''}`}
+                                    value={paramValues[p.name] || ''}
+                                    onChange={(e) => setParamValues({ ...paramValues, [p.name]: e.target.value })}
+                                    className="text-xs h-8"
+                                  />
+                                </div>
+                              ))}
+                          </div>
+                        </div>
+                        <Button size="sm" onClick={runApi} disabled={!apiKeyInput || apiLoading} className="w-full">
+                          {apiLoading ? 'Running...' : 'Run'}
+                        </Button>
+                        {apiStatus !== null && (
+                          <div>
+                            <div className="flex items-center gap-2 mb-1">
+                              <h4 className="text-xs font-semibold">Response</h4>
+                              <Badge variant={apiStatus >= 200 && apiStatus < 300 ? 'default' : 'destructive'} className="text-[10px]">
+                                {apiStatus}
+                              </Badge>
+                            </div>
+                            <pre className="bg-muted rounded-lg p-3 text-xs font-mono overflow-x-auto max-h-[300px] overflow-y-auto">
+                              {apiResponse}
+                            </pre>
+                          </div>
+                        )}
+                      </TabsContent>
+                    </Tabs>
+                  </CardContent>
+                </Card>
+              ) : (
+                <Card className="h-[400px] flex items-center justify-center">
+                  <CardContent className="text-center">
+                    <Zap className="h-10 w-10 mx-auto mb-2 text-muted-foreground/30" />
+                    <p className="text-sm text-muted-foreground">Select an endpoint to view documentation</p>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
           </div>
-        )}
+        </section>
+
+        <div className="h-8" />
       </div>
-    </div>
+    </PageWrapper>
   )
 }
