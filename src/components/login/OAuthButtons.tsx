@@ -9,7 +9,7 @@ export function OAuthButtons() {
       <Button
         type="button"
         variant="outline"
-        onClick={() => signIn('google', { redirect: false, callbackUrl: '/dashboard' })}
+        onClick={() => signIn('google')}
         className="h-11"
       >
         <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
@@ -35,7 +35,7 @@ export function OAuthButtons() {
       <Button
         type="button"
         variant="outline"
-        onClick={() => signIn('github', { redirect: false, callbackUrl: '/dashboard' })}
+        onClick={() => signIn('github')}
         className="h-11"
       >
         <svg className="mr-2 h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
