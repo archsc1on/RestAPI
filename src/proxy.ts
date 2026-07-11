@@ -21,7 +21,7 @@ export default async function proxy(req: NextRequest) {
   if (process.env.NODE_ENV === 'production') {
     response.headers.set(
       'Content-Security-Policy',
-      "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://api.jikan.moe https://*.googleapis.com; frame-ancestors 'none';"
+      "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://kitsu.io https://*.googleapis.com; frame-ancestors 'none';"
     )
   }
 

@@ -1,40 +1,37 @@
 import { createPlugin } from '@/lib/plugin'
+import { kitsuFetch, getKitsuUrl, KitsuResponse, KitsuAnime } from '@/lib/kitsu'
 
 export const GET = createPlugin(
   { name: 'anime-detail', endpoint: '/api/tools/anime-detail', costCredits: 2 },
   async (req, { searchParams }) => {
     const id = searchParams.get('id')
-    if (!id) throw new Error('id parameter required (MAL ID)')
+    if (!id) throw new Error('id parameter required (Kitsu ID)')
 
-    const response = await fetch(`https://api.jikan.moe/v4/anime/${id}/full`)
-    if (!response.ok) throw new Error('Anime not found')
+    const url = getKitsuUrl(`/anime/${id}`, {
+      'fields[anime]': 'canonicalTitle,titles,synopsis,status,episodeCount,startDate,endDate,season,ratingRank,popularityRank,posterImage,coverImage',
+    })
 
-    const data = await response.json()
-    const anime = data.data
+    const data = await kitsuFetch<KitsuResponse<KitsuAnime>>(url)
+    const anime = data.data?.[0]
+
+    if (!anime) throw new Error('Anime not found')
 
     return {
-      id: anime.mal_id,
-      title: anime.title,
-      titleJapanese: anime.title_japanese || '',
-      titleEnglish: anime.title_english || '',
-      type: anime.type,
-      episodes: anime.episodes || '?',
-      status: anime.status,
-      aired: anime.aired?.string || '',
-      duration: anime.duration || '',
-      rating: anime.rating || '',
-      score: anime.score,
-      rank: anime.rank,
-      popularity: anime.popularity,
-      members: anime.members,
-      favorites: anime.favorites,
-      synopsis: anime.synopsis || '',
-      image: anime.images?.jpg?.large_image_url || '',
-      trailer: anime.trailer?.url || '',
-      genres: (anime.genres || []).map((g: any) => g.name),
-      studios: (anime.studios || []).map((s: any) => s.name),
-      source: anime.source || '',
-      url: anime.url
+      id: anime.id,
+      title: anime.attributes.canonicalTitle,
+      titleJapanese: anime.attributes.titles?.ja_jp || '',
+      titleEnglish: anime.attributes.titles?.en || '',
+      status: anime.attributes.status,
+      episodes: anime.attributes.episodeCount || '?',
+      startDate: anime.attributes.startDate || '',
+      endDate: anime.attributes.endDate || '',
+      season: anime.attributes.season || '',
+      ratingRank: anime.attributes.ratingRank,
+      popularityRank: anime.attributes.popularityRank,
+      synopsis: anime.attributes.synopsis || '',
+      image: anime.attributes.coverImage?.original || anime.attributes.posterImage?.large || '',
+      posterImage: anime.attributes.posterImage?.large || '',
+      url: `https://kitsu.io/anime/${anime.attributes.slug}`,
     }
   }
 )

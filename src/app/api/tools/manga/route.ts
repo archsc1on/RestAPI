@@ -1,4 +1,5 @@
 import { createPlugin } from '@/lib/plugin'
+import { kitsuFetch, getKitsuUrl, KitsuResponse, KitsuManga } from '@/lib/kitsu'
 
 export const GET = createPlugin(
   { name: 'manga', endpoint: '/api/tools/manga', costCredits: 2 },
@@ -8,25 +9,26 @@ export const GET = createPlugin(
 
     if (!query) throw new Error('q (query) parameter required')
 
-    const response = await fetch(`https://api.jikan.moe/v4/manga?q=${encodeURIComponent(query)}&limit=${limit}`)
-    if (!response.ok) throw new Error('Failed to search manga')
+    const url = getKitsuUrl('/manga', {
+      'filter[text]': query,
+      'page[limit]': String(limit),
+      'fields[manga]': 'canonicalTitle,titles,synopsis,status,chapterCount,volumeCount,ratingRank,posterImage,startDate',
+    })
 
-    const data = await response.json()
-    const results = (data.data || []).map((manga: any) => ({
-      id: manga.mal_id,
-      title: manga.title,
-      titleJapanese: manga.title_japanese || '',
-      type: manga.type,
-      chapters: manga.chapters || '?',
-      volumes: manga.volumes || '?',
-      status: manga.status,
-      score: manga.score,
-      rank: manga.rank,
-      synopsis: manga.synopsis?.substring(0, 200) || '',
-      image: manga.images?.jpg?.large_image_url || manga.images?.jpg?.image_url || '',
-      authors: (manga.authors || []).map((a: any) => a.name),
-      genres: (manga.genres || []).map((g: any) => g.name),
-      url: manga.url
+    const data = await kitsuFetch<KitsuResponse<KitsuManga>>(url)
+
+    const results = (data.data || []).map((manga) => ({
+      id: manga.id,
+      title: manga.attributes.canonicalTitle,
+      titleJapanese: manga.attributes.titles?.ja_jp || '',
+      chapters: manga.attributes.chapterCount || '?',
+      volumes: manga.attributes.volumeCount || '?',
+      status: manga.attributes.status,
+      ratingRank: manga.attributes.ratingRank,
+      synopsis: manga.attributes.synopsis?.substring(0, 200) || '',
+      image: manga.attributes.posterImage?.large || manga.attributes.posterImage?.large || '',
+      startDate: manga.attributes.startDate || '',
+      url: `https://kitsu.io/manga/${manga.attributes.slug}`,
     }))
 
     return { query, total: results.length, results }

@@ -1,19 +1,20 @@
 import { createPlugin } from '@/lib/plugin'
+import { kitsuFetch, getKitsuUrl, KitsuResponse, KitsuCategory } from '@/lib/kitsu'
 
 export const GET = createPlugin(
   { name: 'anime-genres', endpoint: '/api/tools/anime-genres', costCredits: 1 },
   async () => {
-    const response = await fetch('https://api.jikan.moe/v4/genres/anime')
+    const url = getKitsuUrl('/categories', {
+      'page[limit]': '50',
+      'sort': 'name',
+    })
 
-    if (!response.ok) throw new Error('Failed to fetch anime genres')
+    const data = await kitsuFetch<KitsuResponse<KitsuCategory>>(url)
 
-    const data = await response.json()
-
-    const results = (data.data || []).map((genre: any) => ({
-      id: genre.mal_id,
-      name: genre.name,
-      count: genre.count || 0,
-      url: genre.url || ''
+    const results = (data.data || []).map((cat) => ({
+      id: cat.id,
+      name: cat.attributes.name,
+      slug: cat.attributes.slug,
     }))
 
     return { total: results.length, results }

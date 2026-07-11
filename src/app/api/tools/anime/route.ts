@@ -1,5 +1,5 @@
-// src/app/api/tools/anime/route.ts
 import { createPlugin } from '@/lib/plugin'
+import { kitsuFetch, getKitsuUrl, KitsuResponse, KitsuAnime } from '@/lib/kitsu'
 
 export const GET = createPlugin(
   { name: 'anime', endpoint: '/api/tools/anime', costCredits: 2 },
@@ -8,28 +8,25 @@ export const GET = createPlugin(
 
     if (!query) throw new Error('q (query) parameter required')
 
-    // Use Jikan API (MyAnimeList unofficial)
-    const response = await fetch(`https://api.jikan.moe/v4/anime?q=${encodeURIComponent(query)}&limit=5`)
+    const url = getKitsuUrl('/anime', {
+      'filter[text]': query,
+      'page[limit]': '5',
+      'fields[anime]': 'canonicalTitle,titles,synopsis,status,episodeCount,posterImage,ratingRank,startDate',
+    })
 
-    if (!response.ok) {
-      throw new Error('Failed to search anime')
-    }
+    const data = await kitsuFetch<KitsuResponse<KitsuAnime>>(url)
 
-    const data = await response.json()
-
-    const results = (data.data || []).map((anime: any) => ({
-      id: anime.mal_id,
-      title: anime.title,
-      titleJapanese: anime.title_japanese || '',
-      type: anime.type,
-      episodes: anime.episodes || '?',
-      status: anime.status,
-      score: anime.score,
-      rank: anime.rank,
-      synopsis: anime.synopsis?.substring(0, 200) || '',
-      image: anime.images?.jpg?.large_image_url || anime.images?.jpg?.image_url || '',
-      url: anime.url,
-      genres: (anime.genres || []).map((g: any) => g.name)
+    const results = (data.data || []).map((anime) => ({
+      id: anime.id,
+      title: anime.attributes.canonicalTitle,
+      titleJapanese: anime.attributes.titles?.ja_jp || '',
+      type: anime.attributes.status,
+      episodes: anime.attributes.episodeCount || '?',
+      status: anime.attributes.status,
+      ratingRank: anime.attributes.ratingRank,
+      synopsis: anime.attributes.synopsis?.substring(0, 200) || '',
+      image: anime.attributes.posterImage?.large || anime.attributes.posterImage?.large || '',
+      startDate: anime.attributes.startDate || '',
     }))
 
     return {

@@ -1,4 +1,5 @@
 const COBALT_API = process.env.COBALT_API_URL || 'https://cobalt.dzakii.my.id'
+const COBALT_KEY = process.env.COBALT_API_KEY || ''
 
 interface CobaltRequest {
   url: string
@@ -34,12 +35,17 @@ export async function cobaltDownload(options: CobaltRequest): Promise<CobaltResp
     disableMetadata: options.disableMetadata || false,
   }
 
+  const headers: Record<string, string> = {
+    'Accept': 'application/json',
+    'Content-Type': 'application/json',
+  }
+  if (COBALT_KEY) {
+    headers['Authorization'] = COBALT_KEY
+  }
+
   const res = await fetch(COBALT_API, {
     method: 'POST',
-    headers: {
-      'Accept': 'application/json',
-      'Content-Type': 'application/json',
-    },
+    headers,
     body: JSON.stringify(body),
     signal: AbortSignal.timeout(30000),
   })
@@ -65,8 +71,15 @@ export function isSupportedUrl(url: string): boolean {
     'dailymotion.com',
     'bilibili.com',
     'pinterest.com',
-    'imgur.com',
     'streamable.com',
+    'bsky.app',
+    'loom.com',
+    'ok.ru',
+    'newgrounds.com',
+    'rutube.ru',
+    'snapchat.com',
+    'tumblr.com',
+    'vk.com',
   ]
   return supported.some((d) => url.includes(d))
 }

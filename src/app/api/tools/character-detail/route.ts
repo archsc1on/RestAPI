@@ -1,42 +1,27 @@
 import { createPlugin } from '@/lib/plugin'
+import { kitsuFetch, getKitsuUrl, KitsuResponse, KitsuCharacter } from '@/lib/kitsu'
 
 export const GET = createPlugin(
   { name: 'character-detail', endpoint: '/api/tools/character-detail', costCredits: 1 },
   async (req, { searchParams }) => {
     const id = searchParams.get('id')
-    if (!id) throw new Error('id parameter required')
+    if (!id) throw new Error('id parameter required (Kitsu ID)')
 
-    const response = await fetch(`https://api.jikan.moe/v4/characters/${id}/full`)
+    const url = getKitsuUrl(`/characters/${id}`, {
+      'fields[characters]': 'name,names,canonicalName,description,image',
+    })
 
-    if (!response.ok) throw new Error('Failed to fetch character details')
+    const data = await kitsuFetch<KitsuResponse<KitsuCharacter>>(url)
+    const char = data.data?.[0]
 
-    const data = await response.json()
-    const char = data.data
+    if (!char) throw new Error('Character not found')
 
     return {
-      id: char.mal_id,
-      name: char.name,
-      nameKanji: char.name_kanji || '',
-      nickname: char.nicknames || [],
-      favorites: char.favorites || 0,
-      about: char.about || '',
-      image: char.images?.jpg?.image_url || '',
-      url: char.url,
-      anime: (char.anime || []).map((a: any) => ({
-        id: a.anime?.mal_id,
-        title: a.anime?.title,
-        role: a.role
-      })),
-      manga: (char.manga || []).map((m: any) => ({
-        id: m.manga?.mal_id,
-        title: m.manga?.title,
-        role: m.role
-      })),
-      voices: (char.voices || []).map((v: any) => ({
-        id: v.person?.mal_id,
-        name: v.person?.name,
-        language: v.language
-      }))
+      id: char.id,
+      name: char.attributes.canonicalName || char.attributes.name,
+      nameJapanese: char.attributes.names?.ja_jp || '',
+      image: char.attributes.image?.large || char.attributes.image?.medium || '',
+      about: char.attributes.description || '',
     }
   }
 )

@@ -15,10 +15,12 @@ export const GET = createPlugin(
     if (!countryResp.ok) throw new Error('Country not found')
 
     const countryData = await countryResp.json()
-    const c = countryData[0]
+    const c = Array.isArray(countryData) ? countryData[0] : countryData
+
+    if (!c) throw new Error('Country not found')
 
     return {
-      country: c.name?.common,
+      country: c.name?.common || c.name,
       population: c.population,
       area: c.area,
       region: c.region,

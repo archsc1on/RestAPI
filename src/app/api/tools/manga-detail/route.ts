@@ -1,34 +1,36 @@
 import { createPlugin } from '@/lib/plugin'
+import { kitsuFetch, getKitsuUrl, KitsuResponse, KitsuManga } from '@/lib/kitsu'
 
 export const GET = createPlugin(
   { name: 'manga-detail', endpoint: '/api/tools/manga-detail', costCredits: 1 },
   async (req, { searchParams }) => {
     const id = searchParams.get('id')
-    if (!id) throw new Error('id parameter required')
+    if (!id) throw new Error('id parameter required (Kitsu ID)')
 
-    const response = await fetch(`https://api.jikan.moe/v4/manga/${id}/full`)
+    const url = getKitsuUrl(`/manga/${id}`, {
+      'fields[manga]': 'canonicalTitle,titles,synopsis,status,chapterCount,volumeCount,ratingRank,popularityRank,posterImage,coverImage,startDate,endDate',
+    })
 
-    if (!response.ok) throw new Error('Failed to fetch manga details')
+    const data = await kitsuFetch<KitsuResponse<KitsuManga>>(url)
+    const manga = data.data?.[0]
 
-    const data = await response.json()
-    const manga = data.data
+    if (!manga) throw new Error('Manga not found')
 
     return {
-      id: manga.mal_id,
-      title: manga.title,
-      titleJapanese: manga.title_japanese || '',
-      type: manga.type,
-      chapters: manga.chapters || '?',
-      volumes: manga.volumes || '?',
-      status: manga.status,
-      score: manga.score,
-      rank: manga.rank,
-      synopsis: manga.synopsis || '',
-      image: manga.images?.jpg?.large_image_url || manga.images?.jpg?.image_url || '',
-      url: manga.url,
-      genres: (manga.genres || []).map((g: any) => g.name),
-      authors: (manga.authors || []).map((a: any) => a.name),
-      serialization: (manga.serializations || []).map((s: any) => s.name)
+      id: manga.id,
+      title: manga.attributes.canonicalTitle,
+      titleJapanese: manga.attributes.titles?.ja_jp || '',
+      chapters: manga.attributes.chapterCount || '?',
+      volumes: manga.attributes.volumeCount || '?',
+      status: manga.attributes.status,
+      ratingRank: manga.attributes.ratingRank,
+      popularityRank: manga.attributes.popularityRank,
+      synopsis: manga.attributes.synopsis || '',
+      image: manga.attributes.coverImage?.original || manga.attributes.posterImage?.large || '',
+      posterImage: manga.attributes.posterImage?.large || '',
+      startDate: manga.attributes.startDate || '',
+      endDate: manga.attributes.endDate || '',
+      url: `https://kitsu.io/manga/${manga.attributes.slug}`,
     }
   }
 )

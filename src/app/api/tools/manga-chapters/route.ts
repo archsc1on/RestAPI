@@ -1,31 +1,33 @@
 import { createPlugin } from '@/lib/plugin'
+import { kitsuFetch, getKitsuUrl, KitsuResponse, KitsuManga } from '@/lib/kitsu'
 
 export const GET = createPlugin(
   { name: 'manga-chapters', endpoint: '/api/tools/manga-chapters', costCredits: 1 },
   async (req, { searchParams }) => {
     const id = searchParams.get('id')
-    if (!id) throw new Error('id parameter required')
+    if (!id) throw new Error('id parameter required (Kitsu ID)')
 
-    const response = await fetch(`https://api.jikan.moe/v4/manga/${id}/full`)
+    const url = getKitsuUrl(`/manga/${id}`, {
+      'fields[manga]': 'canonicalTitle,titles,synopsis,status,chapterCount,volumeCount,ratingRank,startDate,endDate',
+    })
 
-    if (!response.ok) throw new Error('Failed to fetch manga chapters')
+    const data = await kitsuFetch<KitsuResponse<KitsuManga>>(url)
+    const manga = data.data?.[0]
 
-    const data = await response.json()
-
-    const manga = data.data || {}
+    if (!manga) throw new Error('Manga not found')
 
     return {
-      id: manga.mal_id || parseInt(id),
-      title: manga.title || '',
-      titleEnglish: manga.title_english || '',
-      totalChapters: manga.chapters || 0,
-      totalVolumes: manga.volumes || 0,
-      status: manga.status || '',
-      type: manga.type || '',
-      synopsis: manga.synopsis || '',
-      score: manga.score || 0,
-      genres: (manga.genres || []).map((g: any) => g.name),
-      url: manga.url || ''
+      id: manga.id,
+      title: manga.attributes.canonicalTitle,
+      titleJapanese: manga.attributes.titles?.ja_jp || '',
+      totalChapters: manga.attributes.chapterCount || 0,
+      totalVolumes: manga.attributes.volumeCount || 0,
+      status: manga.attributes.status || '',
+      synopsis: manga.attributes.synopsis || '',
+      ratingRank: manga.attributes.ratingRank || 0,
+      startDate: manga.attributes.startDate || '',
+      endDate: manga.attributes.endDate || '',
+      url: `https://kitsu.io/manga/${manga.attributes.slug}`,
     }
   }
 )

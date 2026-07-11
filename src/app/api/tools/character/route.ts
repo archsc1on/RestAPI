@@ -1,4 +1,5 @@
 import { createPlugin } from '@/lib/plugin'
+import { kitsuFetch, getKitsuUrl, KitsuResponse, KitsuCharacter } from '@/lib/kitsu'
 
 export const GET = createPlugin(
   { name: 'character', endpoint: '/api/tools/character', costCredits: 2 },
@@ -8,19 +9,20 @@ export const GET = createPlugin(
 
     if (!query) throw new Error('q (query) parameter required')
 
-    const response = await fetch(`https://api.jikan.moe/v4/characters?q=${encodeURIComponent(query)}&limit=${limit}`)
-    if (!response.ok) throw new Error('Failed to search characters')
+    const url = getKitsuUrl('/characters', {
+      'filter[name]': query,
+      'page[limit]': String(limit),
+      'fields[characters]': 'name,names,canonicalName,description,image',
+    })
 
-    const data = await response.json()
-    const results = (data.data || []).map((char: any) => ({
-      id: char.mal_id,
-      name: char.name,
-      nameKanji: char.name_kanji || '',
-      nicknames: char.nicknames || [],
-      favorites: char.favorites,
-      image: char.images?.jpg?.image_url || '',
-      about: char.about?.substring(0, 200) || '',
-      url: char.url
+    const data = await kitsuFetch<KitsuResponse<KitsuCharacter>>(url)
+
+    const results = (data.data || []).map((char) => ({
+      id: char.id,
+      name: char.attributes.canonicalName || char.attributes.name,
+      nameJapanese: char.attributes.names?.ja_jp || '',
+      image: char.attributes.image?.medium || '',
+      about: char.attributes.description?.substring(0, 200) || '',
     }))
 
     return { query, total: results.length, results }
