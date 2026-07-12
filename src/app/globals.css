@@ -86,7 +86,7 @@
   background: hsl(var(--muted-foreground));
 }
 
-* {
+html {
   scrollbar-width: thin;
   scrollbar-color: hsl(var(--muted)) hsl(var(--background));
 }
