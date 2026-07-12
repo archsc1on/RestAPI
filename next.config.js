@@ -1,9 +1,30 @@
-// next.config.js
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
 
-  serverExternalPackages: ['xendit-node', '@prisma/client', 'bcryptjs', '@distube/ytdl-core', 'undici'],
+  serverExternalPackages: [
+    'xendit-node',
+    '@prisma/client',
+    'bcryptjs',
+    '@distube/ytdl-core',
+    'undici',
+  ],
+
+  webpack: (config, { isServer }) => {
+    if (!isServer) {
+      config.resolve.alias = {
+        ...config.resolve.alias,
+        fs: false,
+        net: false,
+        tls: false,
+        crypto: false,
+        stream: false,
+        path: false,
+        os: false,
+      }
+    }
+    return config
+  },
 
   turbopack: {
     resolveAlias: {

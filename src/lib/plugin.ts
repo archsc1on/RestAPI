@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from './prisma'
-import { getApiKeyRecord, checkRateLimit, updateKeyStats, deductCredits, hasEnoughCredits } from './api-key'
+import { getApiKeyRecord, checkRateLimit, updateKeyStats } from './api-key'
 
 export interface PluginConfig {
   name: string
@@ -48,58 +48,65 @@ export function createPlugin(config: PluginConfig, handler: PluginHandler) {
         return NextResponse.json({ status: false, message: 'Invalid API key' }, { status: 401 })
       }
 
-      const withinLimit = await checkRateLimit(keyRecord.id)
+      const withinLimit = await checkRateLimit(keyRecord.id, keyRecord.rateLimit)
       if (!withinLimit) {
-        await updateKeyStats(keyRecord.id, false)
+        updateKeyStats(keyRecord.id, false)
         return NextResponse.json({ status: false, message: 'Rate limit exceeded' }, { status: 429 })
       }
 
-      const creditCheck = await hasEnoughCredits(keyRecord.userId, cost)
-      if (!creditCheck.enough) {
-        await updateKeyStats(keyRecord.id, false)
+      const available = keyRecord.user.credits
+      if (available < cost) {
+        updateKeyStats(keyRecord.id, false)
         return NextResponse.json(
-          { status: false, message: 'Insufficient credits', remaining: creditCheck.available },
+          { status: false, message: 'Insufficient credits', remaining: available },
           { status: 402 }
         )
       }
 
       const { searchParams } = new URL(request.url)
-      const entries: [string, string][] = Array.from(searchParams.entries())
-      for (const [key, value] of entries) {
+      for (const [key, value] of Array.from(searchParams.entries())) {
         const sanitized = sanitizeInput(value)
         if (sanitized !== null) searchParams.set(key, sanitized)
       }
 
       const result = await handler(request, { keyRecord, searchParams })
 
-      await prisma.apiLog.create({
-        data: {
-          keyId: keyRecord.id,
-          userId: keyRecord.userId,
-          endpoint: config.endpoint,
-          method,
-          statusCode: 200,
-          costCredits: cost,
-          ip: request.headers.get('x-forwarded-for') || '',
-          userAgent: request.headers.get('user-agent') || ''
-        }
-      })
+      const remaining = available - cost
 
-      await deductCredits(keyRecord.userId, cost)
-      await updateKeyStats(keyRecord.id, true)
-
-      const user = await prisma.user.findUnique({
-        where: { id: keyRecord.userId },
-        select: { credits: true }
-      })
+      await prisma.$transaction([
+        prisma.apiLog.create({
+          data: {
+            keyId: keyRecord.id,
+            userId: keyRecord.userId,
+            endpoint: config.endpoint,
+            method,
+            statusCode: 200,
+            costCredits: cost,
+            ip: request.headers.get('x-forwarded-for') || '',
+            userAgent: request.headers.get('user-agent') || '',
+          },
+        }),
+        prisma.user.update({
+          where: { id: keyRecord.userId },
+          data: { credits: { decrement: cost } },
+        }),
+        prisma.apiKey.update({
+          where: { id: keyRecord.id },
+          data: {
+            totalRequests: { increment: 1 },
+            successRequests: { increment: 1 },
+            lastUsed: new Date(),
+          },
+        }),
+      ])
 
       return NextResponse.json({
         status: true,
         data: {
           ...result,
           costCredits: cost,
-          remaining: user?.credits || 0
-        }
+          remaining,
+        },
       })
     } catch (error: any) {
       console.error(`[${config.name}] error:`, error)
@@ -108,10 +115,6 @@ export function createPlugin(config: PluginConfig, handler: PluginHandler) {
         { status: 500 }
       )
     }
-  }
-
-  if (method === 'GET') {
-    return handlerFn
   }
 
   return handlerFn
