@@ -50,17 +50,14 @@ export async function POST(request: NextRequest) {
       }
     })
 
-    const keys = await prisma.apiKey.findMany({ where: { userId: session.user.id } })
-    for (const key of keys) {
-      await prisma.apiKey.update({
-        where: { id: key.id },
-        data: {
-          tier,
-          creditsDaily: config.creditsDaily,
-          rateLimit: config.rateLimit
-        }
-      })
-    }
+    await prisma.apiKey.updateMany({
+      where: { userId: session.user.id },
+      data: {
+        tier,
+        creditsDaily: config.creditsDaily,
+        rateLimit: config.rateLimit
+      }
+    })
 
     return NextResponse.json({
       status: true,

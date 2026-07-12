@@ -10,8 +10,6 @@ const nextConfig = {
   serverExternalPackages: [
     'xendit-node',
     '@prisma/client',
-    'bcryptjs',
-    '@distube/ytdl-core',
     'undici',
   ],
 

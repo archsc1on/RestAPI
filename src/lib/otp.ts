@@ -1,5 +1,4 @@
-// src/lib/otp.ts
-import bcrypt from 'bcryptjs'
+import crypto from 'crypto'
 import nodemailer from 'nodemailer'
 import prisma from './prisma'
 
@@ -21,41 +20,37 @@ export const isValidOTPFormat = (otp: string): boolean => {
   return /^\d{6}$/.test(otp)
 }
 
+const hashOTP = (otp: string): string => {
+  return crypto.createHash('sha256').update(otp).digest('hex')
+}
+
 export const saveOTP = async (userId: string, otp: string) => {
-  const hashedOTP = await bcrypt.hash(otp, 10)
+  const hashedOTP = hashOTP(otp)
   const otpExpires = new Date(Date.now() + 10 * 60 * 1000)
 
   return prisma.user.update({
     where: { id: userId },
-    data: {
-      otp: hashedOTP,
-      otpExpires
-    }
+    data: { otp: hashedOTP, otpExpires },
   })
 }
 
 export const verifyOTP = async (email: string, otp: string): Promise<boolean> => {
   const user = await prisma.user.findUnique({ where: { email: email.toLowerCase() } })
 
-  if (!user || !user.otp || !user.otpExpires) {
-    return false
-  }
+  if (!user || !user.otp || !user.otpExpires) return false
+  if (user.otpExpires < new Date()) return false
 
-  if (user.otpExpires < new Date()) {
-    return false
-  }
+  const inputHash = Buffer.from(hashOTP(otp))
+  const storedHash = Buffer.from(user.otp)
 
-  const isValid = await bcrypt.compare(otp, user.otp)
+  if (inputHash.length !== storedHash.length) return false
+
+  const isValid = crypto.timingSafeEqual(inputHash, storedHash)
 
   if (isValid) {
     await prisma.user.update({
       where: { id: user.id },
-      data: {
-        otp: null,
-        otpExpires: null,
-        emailVerified: true,
-        lastLogin: new Date()
-      }
+      data: { otp: null, otpExpires: null, emailVerified: true, lastLogin: new Date() },
     })
   }
 
@@ -77,7 +72,7 @@ export const sendOTPEmail = async (email: string, otp: string): Promise<boolean>
           </div>
           <p style="color: #999; text-align: center; font-size: 12px;">This code expires in 10 minutes. If you didn't request this, ignore this email.</p>
         </div>
-      `
+      `,
     })
     return true
   } catch (error) {

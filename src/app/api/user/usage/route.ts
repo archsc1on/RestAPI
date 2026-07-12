@@ -16,7 +16,6 @@ export async function GET() {
     const thirtyDaysAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000)
     const oneYearAgo = new Date(today.getTime() - 365 * 24 * 60 * 60 * 1000)
 
-    // Get user tier for limits
     const user = await prisma.user.findUnique({
       where: { id: session.user.id },
       select: { creditsTier: true },
@@ -29,8 +28,7 @@ export async function GET() {
     }
     const dailyLimit = tierLimits[user?.creditsTier || 'FREE'] || 100
 
-    // Aggregate usage per period
-    const [todayUsage, weekUsage, monthUsage, yearUsage] = await Promise.all([
+    const [todayUsage, weekUsage, monthUsage, yearUsage, dailyRaw] = await Promise.all([
       prisma.apiLog.aggregate({
         where: { userId: session.user.id, createdAt: { gte: today } },
         _sum: { costCredits: true },
@@ -47,25 +45,25 @@ export async function GET() {
         where: { userId: session.user.id, createdAt: { gte: oneYearAgo } },
         _sum: { costCredits: true },
       }),
+      prisma.$queryRaw<{ date: string; used: number }[]>`
+        SELECT
+          TO_CHAR("createdAt" AT TIME ZONE 'UTC', 'YYYY-MM-DD') AS date,
+          SUM("costCredits")::int AS used
+        FROM "ApiLog"
+        WHERE "userId" = ${session.user.id}
+          AND "createdAt" >= ${thirtyDaysAgo}
+        GROUP BY TO_CHAR("createdAt" AT TIME ZONE 'UTC', 'YYYY-MM-DD')
+        ORDER BY date ASC
+      `,
     ])
 
-    // Daily breakdown for last 30 days (for chart)
-    const dailyLogs = await prisma.apiLog.groupBy({
-      by: ['createdAt'],
-      where: { userId: session.user.id, createdAt: { gte: thirtyDaysAgo } },
-      _sum: { costCredits: true },
-    })
+    const dailyMap = new Map(dailyRaw.map((r) => [r.date, r.used]))
 
-    // Build 30-day array
     const daily: { date: string; used: number }[] = []
     for (let i = 29; i >= 0; i--) {
       const d = new Date(today.getTime() - i * 24 * 60 * 60 * 1000)
       const dateStr = d.toISOString().split('T')[0]
-      const dayData = dailyLogs.find((log) => {
-        const logDate = new Date(log.createdAt).toISOString().split('T')[0]
-        return logDate === dateStr
-      })
-      daily.push({ date: dateStr, used: dayData?._sum.costCredits || 0 })
+      daily.push({ date: dateStr, used: dailyMap.get(dateStr) || 0 })
     }
 
     return NextResponse.json({
