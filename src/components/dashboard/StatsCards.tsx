@@ -117,13 +117,12 @@ export function StatsCards({ userData, keysCount, maxKeys, onRefresh, onToggleUp
   ]
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
       {cards.map((card, i) => (
-        <motion.div
+        <div
           key={card.label}
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: i * 0.05 }}
+          className="animate-in fade-in slide-in-from-bottom-2 duration-300"
+          style={{ animationDelay: `${i * 50}ms`, animationFillMode: 'both' }}
         >
           <Card className="relative overflow-hidden">
             <div className={`absolute inset-0 bg-gradient-to-br ${card.gradient}`} />
@@ -186,7 +185,7 @@ export function StatsCards({ userData, keysCount, maxKeys, onRefresh, onToggleUp
               )}
             </CardContent>
           </Card>
-        </motion.div>
+        </div>
       ))}
     </div>
   )

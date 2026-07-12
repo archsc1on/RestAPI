@@ -66,12 +66,9 @@ export function FeatureGrid() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: i * 0.05 }}
-              whileHover={{ y: -4, scale: 1.01 }}
-              className="group relative rounded-xl border bg-card p-6 transition-all duration-300 hover:shadow-lg hover:shadow-primary/5 hover:border-primary/30 overflow-hidden"
+              className="group relative rounded-xl border bg-card p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg hover:shadow-primary/5 hover:border-primary/30 overflow-hidden will-change-transform"
             >
-              {/* Subtle gradient on hover */}
               <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-
               <div className="relative">
                 <div className={`w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center mb-4 transition-colors duration-300 ${f.accent}`}>
                   <f.icon className="w-5 h-5 text-primary transition-colors duration-300 group-hover:text-foreground" />

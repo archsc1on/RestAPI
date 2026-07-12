@@ -1,6 +1,6 @@
 'use client'
 
-import { motion } from 'framer-motion'
+import { motion, useReducedMotion } from 'framer-motion'
 import { useEffect, useState } from 'react'
 
 interface Orb {
@@ -13,21 +13,21 @@ interface Orb {
   delay: number
 }
 
-function generateOrbs(count: number): Orb[] {
-  const colors = [
-    'bg-primary/20',
-    'bg-primary/10',
-    'bg-purple-500/10',
-    'bg-blue-500/10',
-    'bg-indigo-500/10',
-  ]
+const COLORS = [
+  'bg-primary/20',
+  'bg-primary/10',
+  'bg-purple-500/10',
+  'bg-blue-500/10',
+  'bg-indigo-500/10',
+]
 
+function generateOrbs(count: number): Orb[] {
   return Array.from({ length: count }, (_, i) => ({
     id: i,
     x: Math.random() * 100,
     y: Math.random() * 100,
     size: Math.random() * 200 + 100,
-    color: colors[i % colors.length],
+    color: COLORS[i % COLORS.length],
     duration: Math.random() * 20 + 20,
     delay: Math.random() * 5,
   }))
@@ -35,9 +35,13 @@ function generateOrbs(count: number): Orb[] {
 
 export function FloatingBackground() {
   const [orbs, setOrbs] = useState<Orb[]>([])
+  const [isMobile, setIsMobile] = useState(false)
+  const reduceMotion = useReducedMotion()
 
   useEffect(() => {
-    setOrbs(generateOrbs(6))
+    const mobile = window.matchMedia('(max-width: 768px)').matches
+    setIsMobile(mobile)
+    setOrbs(generateOrbs(mobile ? 2 : 4))
   }, [])
 
   if (orbs.length === 0) return null
@@ -53,12 +57,18 @@ export function FloatingBackground() {
             height: orb.size,
             left: `${orb.x}%`,
             top: `${orb.y}%`,
+            willChange: 'transform',
+            transform: 'translateZ(0)',
           }}
-          animate={{
-            x: [0, 30, -20, 10, 0],
-            y: [0, -20, 30, -10, 0],
-            scale: [1, 1.1, 0.95, 1.05, 1],
-          }}
+          animate={
+            reduceMotion || isMobile
+              ? {}
+              : {
+                  x: [0, 30, -20, 10, 0],
+                  y: [0, -20, 30, -10, 0],
+                  scale: [1, 1.1, 0.95, 1.05, 1],
+                }
+          }
           transition={{
             duration: orb.duration,
             repeat: Infinity,
@@ -68,7 +78,6 @@ export function FloatingBackground() {
         />
       ))}
 
-      {/* Grid pattern */}
       <div
         className="absolute inset-0 opacity-[0.015] dark:opacity-[0.03]"
         style={{
@@ -85,10 +94,13 @@ export function FloatingBackground() {
 
 export function FloatingDots() {
   const [dots, setDots] = useState<{ id: number; x: number; y: number; size: number; delay: number }[]>([])
+  const reduceMotion = useReducedMotion()
 
   useEffect(() => {
+    const isMobile = window.matchMedia('(max-width: 768px)').matches
+    if (isMobile) return
     setDots(
-      Array.from({ length: 20 }, (_, i) => ({
+      Array.from({ length: 12 }, (_, i) => ({
         id: i,
         x: Math.random() * 100,
         y: Math.random() * 100,
@@ -111,11 +123,13 @@ export function FloatingDots() {
             height: dot.size,
             left: `${dot.x}%`,
             top: `${dot.y}%`,
+            willChange: 'transform, opacity',
           }}
-          animate={{
-            y: [0, -30, 0],
-            opacity: [0.2, 0.6, 0.2],
-          }}
+          animate={
+            reduceMotion
+              ? {}
+              : { y: [0, -30, 0], opacity: [0.2, 0.6, 0.2] }
+          }
           transition={{
             duration: 4 + Math.random() * 3,
             repeat: Infinity,
@@ -129,13 +143,17 @@ export function FloatingDots() {
 }
 
 export function GlowOrb({ className }: { className?: string }) {
+  const reduceMotion = useReducedMotion()
+
   return (
     <motion.div
       className={`absolute rounded-full blur-3xl bg-primary/15 ${className}`}
-      animate={{
-        scale: [1, 1.2, 1],
-        opacity: [0.15, 0.25, 0.15],
-      }}
+      style={{ willChange: 'transform, opacity', transform: 'translateZ(0)' }}
+      animate={
+        reduceMotion
+          ? {}
+          : { scale: [1, 1.2, 1], opacity: [0.15, 0.25, 0.15] }
+      }
       transition={{
         duration: 8,
         repeat: Infinity,

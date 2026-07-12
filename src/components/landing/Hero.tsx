@@ -1,10 +1,10 @@
 'use client'
 
-import { motion } from 'framer-motion'
+import { motion, useReducedMotion } from 'framer-motion'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { ArrowRight, Copy, Check, Code2, Braces, Terminal } from 'lucide-react'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { tokens } from '@/app/lib/tokens'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.messageapi.id'
@@ -38,6 +38,12 @@ data = res.json()`,
 export function Hero() {
   const [activeTab, setActiveTab] = useState(0)
   const [copied, setCopied] = useState(false)
+  const [isMobile, setIsMobile] = useState(true)
+  const reduceMotion = useReducedMotion()
+
+  useEffect(() => {
+    setIsMobile(window.matchMedia('(max-width: 768px)').matches)
+  }, [])
 
   const handleCopy = () => {
     navigator.clipboard.writeText(codeExamples[activeTab].code)
@@ -45,60 +51,67 @@ export function Hero() {
     setTimeout(() => setCopied(false), 1500)
   }
 
+  const floatAnim = (isMobile || reduceMotion)
+    ? {}
+    : undefined
+
   return (
     <section className="relative pt-32 pb-20 px-4 overflow-hidden">
       <div className="absolute inset-0 bg-gradient-to-b from-primary/5 via-transparent to-transparent" />
 
-      {/* Floating decorative elements */}
-      <motion.div
-        className="absolute top-20 left-[10%] text-primary/20"
-        animate={{ y: [0, -15, 0], rotate: [0, 5, 0] }}
-        transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' }}
-      >
-        <Code2 className="w-8 h-8" />
-      </motion.div>
-      <motion.div
-        className="absolute top-32 right-[15%] text-primary/15"
-        animate={{ y: [0, 12, 0], rotate: [0, -8, 0] }}
-        transition={{ duration: 7, repeat: Infinity, ease: 'easeInOut', delay: 1 }}
-      >
-        <Braces className="w-10 h-10" />
-      </motion.div>
-      <motion.div
-        className="absolute bottom-32 left-[8%] text-purple-500/15"
-        animate={{ y: [0, -10, 0], x: [0, 8, 0] }}
-        transition={{ duration: 8, repeat: Infinity, ease: 'easeInOut', delay: 2 }}
-      >
-        <Terminal className="w-7 h-7" />
-      </motion.div>
-      <motion.div
-        className="absolute top-48 left-[20%] text-blue-500/10 font-mono text-sm"
-        animate={{ y: [0, -20, 0], opacity: [0.1, 0.25, 0.1] }}
-        transition={{ duration: 5, repeat: Infinity, ease: 'easeInOut', delay: 0.5 }}
-      >
-        {'{ API }'}
-      </motion.div>
-      <motion.div
-        className="absolute bottom-40 right-[12%] text-emerald-500/10 font-mono text-xs"
-        animate={{ y: [0, 15, 0], opacity: [0.1, 0.2, 0.1] }}
-        transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut', delay: 1.5 }}
-      >
-        200 OK
-      </motion.div>
-      <motion.div
-        className="absolute top-24 right-[25%] text-primary/10 font-mono text-[10px]"
-        animate={{ y: [0, -12, 0], opacity: [0.1, 0.3, 0.1] }}
-        transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut', delay: 3 }}
-      >
-        rateLimit
-      </motion.div>
-      <motion.div
-        className="absolute bottom-24 left-[25%] text-orange-500/10 font-mono text-[10px]"
-        animate={{ y: [0, 10, 0], opacity: [0.1, 0.25, 0.1] }}
-        transition={{ duration: 5, repeat: Infinity, ease: 'easeInOut', delay: 2.5 }}
-      >
-        x-api-key
-      </motion.div>
+      {!isMobile && !reduceMotion && (
+        <>
+          <motion.div
+            className="absolute top-20 left-[10%] text-primary/20"
+            animate={{ y: [0, -15, 0], rotate: [0, 5, 0] }}
+            transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' }}
+          >
+            <Code2 className="w-8 h-8" />
+          </motion.div>
+          <motion.div
+            className="absolute top-32 right-[15%] text-primary/15"
+            animate={{ y: [0, 12, 0], rotate: [0, -8, 0] }}
+            transition={{ duration: 7, repeat: Infinity, ease: 'easeInOut', delay: 1 }}
+          >
+            <Braces className="w-10 h-10" />
+          </motion.div>
+          <motion.div
+            className="absolute bottom-32 left-[8%] text-purple-500/15"
+            animate={{ y: [0, -10, 0], x: [0, 8, 0] }}
+            transition={{ duration: 8, repeat: Infinity, ease: 'easeInOut', delay: 2 }}
+          >
+            <Terminal className="w-7 h-7" />
+          </motion.div>
+          <motion.div
+            className="absolute top-48 left-[20%] text-blue-500/10 font-mono text-sm"
+            animate={{ y: [0, -20, 0], opacity: [0.1, 0.25, 0.1] }}
+            transition={{ duration: 5, repeat: Infinity, ease: 'easeInOut', delay: 0.5 }}
+          >
+            {'{ API }'}
+          </motion.div>
+          <motion.div
+            className="absolute bottom-40 right-[12%] text-emerald-500/10 font-mono text-xs"
+            animate={{ y: [0, 15, 0], opacity: [0.1, 0.2, 0.1] }}
+            transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut', delay: 1.5 }}
+          >
+            200 OK
+          </motion.div>
+          <motion.div
+            className="absolute top-24 right-[25%] text-primary/10 font-mono text-[10px]"
+            animate={{ y: [0, -12, 0], opacity: [0.1, 0.3, 0.1] }}
+            transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut', delay: 3 }}
+          >
+            rateLimit
+          </motion.div>
+          <motion.div
+            className="absolute bottom-24 left-[25%] text-orange-500/10 font-mono text-[10px]"
+            animate={{ y: [0, 10, 0], opacity: [0.1, 0.25, 0.1] }}
+            transition={{ duration: 5, repeat: Infinity, ease: 'easeInOut', delay: 2.5 }}
+          >
+            x-api-key
+          </motion.div>
+        </>
+      )}
 
       <div className="relative max-w-4xl mx-auto text-center">
         <motion.div
@@ -112,27 +125,17 @@ export function Hero() {
           </div>
         </motion.div>
 
-        <motion.h1
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.1, ease: tokens.motion.easeOut }}
-          className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight mb-6"
-        >
+        <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight mb-6 animate-in fade-in slide-in-from-bottom-4 duration-500 fill-mode-both [animation-delay:100ms]">
           Ship APIs your
           <br />
           users actually{' '}
           <span className="text-primary">love</span>
-        </motion.h1>
+        </h1>
 
-        <motion.p
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.2, ease: tokens.motion.easeOut }}
-          className="text-lg text-muted-foreground mb-8 max-w-2xl mx-auto"
-        >
+        <p className="text-lg text-muted-foreground mb-8 max-w-2xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500 fill-mode-both [animation-delay:200ms]">
           MessageAPI handles routing, rate limiting, and monitoring so you can
           focus on what matters — your product.
-        </motion.p>
+        </p>
 
         <motion.div
           initial={{ opacity: 0, y: 20 }}
