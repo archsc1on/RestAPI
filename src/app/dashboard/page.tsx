@@ -82,7 +82,7 @@ export default function Dashboard() {
       const iv = setInterval(loadData, 10000)
       return () => clearInterval(iv)
     }
-  }, [status])
+  }, [status, router])
 
   const loadData = async () => {
     try {
