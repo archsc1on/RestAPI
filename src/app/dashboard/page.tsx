@@ -375,7 +375,7 @@ export default function Dashboard() {
                           {d.method}
                         </Badge>
                         <span className="text-[10px] text-muted-foreground">{d.category}</span>
-                        <span className="ml-auto text-[10px] text-primary font-medium">{d.cost}cr</span>
+                        <span className="ml-auto text-[10px] text-foreground/60 font-medium">{d.cost}cr</span>
                       </div>
                       <div className="text-xs font-medium">{d.name}</div>
                       <div className="text-[10px] text-muted-foreground font-mono mt-0.5">{d.endpoint}</div>
@@ -407,7 +407,7 @@ export default function Dashboard() {
                       <code className="text-sm text-primary flex-1 font-mono truncate">
                         {API_BASE}{doc.endpoint}
                       </code>
-                      <Button variant="ghost" size="sm" className="h-7" onClick={() => copyText(`${API_BASE}${doc.endpoint}`)}>
+                      <Button variant="ghost" size="sm" className="h-7" aria-label={`Copy endpoint URL`} onClick={() => copyText(`${API_BASE}${doc.endpoint}`)}>
                         <Copy className="h-3.5 w-3.5 mr-1" /> Copy
                       </Button>
                     </div>
@@ -431,7 +431,7 @@ export default function Dashboard() {
                           ))}
                         </div>
                         <div>
-                          <h4 className="text-[10px] font-semibold uppercase text-muted-foreground mb-1.5">Tags</h4>
+                          <p className="text-[10px] font-semibold uppercase text-muted-foreground mb-1.5">Tags</p>
                           <div className="flex gap-1 flex-wrap">
                             {doc.tags.map((t) => (
                               <Badge key={t} variant="secondary" className="text-[10px]">
@@ -441,7 +441,7 @@ export default function Dashboard() {
                           </div>
                         </div>
                         <div>
-                          <h4 className="text-[10px] font-semibold uppercase text-muted-foreground mb-1.5">Parameters</h4>
+                          <p className="text-[10px] font-semibold uppercase text-muted-foreground mb-1.5">Parameters</p>
                           <div className="border rounded-lg overflow-hidden">
                             <table className="w-full text-xs">
                               <thead>
@@ -475,7 +475,7 @@ export default function Dashboard() {
                         </div>
                         {doc.body && doc.body.length > 0 && (
                           <div>
-                            <h4 className="text-[10px] font-semibold uppercase text-muted-foreground mb-1.5">Request Body</h4>
+                          <p className="text-[10px] font-semibold uppercase text-muted-foreground mb-1.5">Request Body</p>
                             <div className="border rounded-lg overflow-hidden">
                               <table className="w-full text-xs">
                                 <thead>
@@ -511,7 +511,7 @@ export default function Dashboard() {
                       </TabsContent>
                       <TabsContent value="code" className="space-y-4">
                         <div>
-                          <h4 className="text-xs font-semibold mb-2">API Key</h4>
+                          <p className="text-xs font-semibold mb-2">API Key</p>
                           <Input
                             placeholder="sk_..."
                             value={apiKeyInput}
@@ -520,13 +520,13 @@ export default function Dashboard() {
                           />
                         </div>
                         <div>
-                          <h4 className="text-xs font-semibold mb-2">Parameters</h4>
+                          <p className="text-xs font-semibold mb-2">Parameters</p>
                           <div className="space-y-2">
                             {doc.params
                               .filter((p) => p.name !== 'x-api-key')
                               .map((p) => (
                                 <div key={p.name} className="flex items-center gap-2">
-                                  <span className="text-xs font-mono text-primary w-24 shrink-0">{p.name}</span>
+                                  <span className="text-xs font-mono text-foreground w-24 shrink-0">{p.name}</span>
                                   <Input
                                     placeholder={`${p.description}${p.required ? ' *' : ''}`}
                                     value={paramValues[p.name] || ''}

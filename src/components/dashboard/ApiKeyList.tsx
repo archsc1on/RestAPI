@@ -156,12 +156,12 @@ export function ApiKeyList({ keys, maxKeys, onCreate, onDelete }: ApiKeyListProp
                         <span className="truncate flex-1">
                           {visibleKeys.has(key.id) ? key.key : '••••••••••••••••••••••••••••••••'}
                         </span>
-                        <Button variant="ghost" size="icon" className="h-5 w-5 shrink-0" onClick={() => toggleVisibility(key.id)}>
+                        <Button variant="ghost" size="icon" className="h-5 w-5 shrink-0" aria-label={visibleKeys.has(key.id) ? 'Hide API key' : 'Show API key'} onClick={() => toggleVisibility(key.id)}>
                           {visibleKeys.has(key.id) ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
                         </Button>
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-5 w-5 shrink-0" onClick={() => copyText(key.key)}>
+                            <Button variant="ghost" size="icon" className="h-5 w-5 shrink-0" aria-label="Copy API key" onClick={() => copyText(key.key)}>
                               <Copy className="h-3 w-3" />
                             </Button>
                           </TooltipTrigger>
@@ -191,6 +191,7 @@ export function ApiKeyList({ keys, maxKeys, onCreate, onDelete }: ApiKeyListProp
                         variant="ghost"
                         size="icon"
                         className="h-7 w-7 text-destructive hover:text-destructive"
+                        aria-label={`Delete key ${key.name}`}
                         onClick={() => onDelete(key.id)}
                       >
                         <Trash2 className="h-3.5 w-3.5" />

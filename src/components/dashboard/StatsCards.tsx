@@ -73,7 +73,7 @@ export function StatsCards({ userData, keysCount, maxKeys, onRefresh, onToggleUp
       action: (
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { onRefresh(); fetchUsage() }}>
+            <Button variant="ghost" size="icon" className="h-6 w-6" aria-label="Refresh credits" onClick={() => { onRefresh(); fetchUsage() }}>
               <RefreshCw className="h-3 w-3" />
             </Button>
           </TooltipTrigger>
@@ -89,7 +89,7 @@ export function StatsCards({ userData, keysCount, maxKeys, onRefresh, onToggleUp
       color: 'text-purple-500',
       gradient: 'from-purple-500/5 to-transparent',
       action: (
-        <button onClick={onToggleUpgrade}>
+        <button aria-label={showUpgrade ? 'Hide upgrade plans' : 'Show upgrade plans'} onClick={onToggleUpgrade}>
           <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${showUpgrade ? 'rotate-180' : ''}`} />
         </button>
       ),
